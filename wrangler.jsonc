@@ -15,17 +15,5 @@
       "binding": "CACHE",
       "id": "phcloudcms_cache"
     }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "ASSETS",
-      "bucket_name": "phcloudcms-assets"
-    }
-  ],
-  "vectors": [
-    {
-      "binding": "VECTORS",
-      "index_name": "phcloudcms-vectors"
-    }
   ]
 }
