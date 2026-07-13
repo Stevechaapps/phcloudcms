@@ -222,52 +222,6 @@ app.get('/sitemap.xml', async (c) => {
   return c.body(result.markup as string, 200, { 'Content-Type': 'application/xml' });
 });
 
-// ── Public pages ──────────────────────────────────────────────────
-
-app.get('/:slug?', async (c) => {
-  const registry = new CMSRegistry();
-  const db = c.env.DB;
-  const slug = c.req.param('slug') ?? '';
-
-  const siteName = await getCached(c, 'cms:config', 600, async () => {
-    const row = await getSetting(db, 'site_name');
-    return row ?? 'My Site';
-  });
-
-  const plugins = await getCached(c, 'cms:plugins', 300, async () => {
-    const rows = await db.prepare("SELECT id, active FROM plugins").all<{ id: string; active: number }>();
-    return Object.fromEntries(rows.results.map((p) => [p.id, p.active === 1]));
-  });
-
-  initActivePlugins(registry, plugins);
-
-  let post: { title: string; content: string; updated_at: string } | null = null;
-
-  if (slug) {
-    post = await db.prepare(
-      "SELECT title, content, updated_at FROM posts WHERE slug = ? AND published = 1"
-    ).bind(slug).first<{ title: string; content: string; updated_at: string }>();
-    if (!post) return c.notFound();
-  } else {
-    post = await db.prepare(
-      "SELECT title, content, updated_at FROM posts WHERE published = 1 ORDER BY updated_at DESC LIMIT 1"
-    ).first<{ title: string; content: string; updated_at: string }>();
-  }
-
-  const title = post?.title ?? siteName;
-  const meta = { title, description: '', url: new URL(c.req.url).href };
-
-  const headPayload = await registry.executePipeline('render:head', { siteName, title, markup: '', meta });
-
-  let bodyHtml = post ? renderPost(post) : renderHomepage(siteName);
-  const bodyPayload = await registry.executePipeline('render:body', { bodyHtml, post, siteName });
-  bodyHtml = (bodyPayload.bodyHtml as string) ?? bodyHtml;
-
-  const fullHtml = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />' + (headPayload.markup as string) + '</head><body><header style="border-bottom:1px solid #e5e7eb;padding:1.25rem 2rem;"><a href="/" style="font-weight:700;font-size:1.1rem;color:#0f172a;text-decoration:none;">' + esc(siteName) + '</a></header><main style="max-width:720px;margin:2rem auto;padding:0 1.5rem;">' + bodyHtml + '</main><footer style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.8rem;">Powered by PHCloud CMS on Cloudflare Workers</footer></body></html>';
-
-  return c.html(fullHtml);
-});
-
 // ── Admin panel (HTML) ─────────────────────────────────────────────
 
 app.get('/admin', async (c) => {
@@ -331,6 +285,52 @@ function initActivePlugins(registry: CMSRegistry, active: Record<string, boolean
   if (active.sitemap) initSitemapPlugin(registry);
   // new plugins: add an `if (active.<id>)` line here
 }
+
+// ── Public pages (catch-all — must be after admin routes) ─────────
+
+app.get('/:slug?', async (c) => {
+  const registry = new CMSRegistry();
+  const db = c.env.DB;
+  const slug = c.req.param('slug') ?? '';
+
+  const siteName = await getCached(c, 'cms:config', 600, async () => {
+    const row = await getSetting(db, 'site_name');
+    return row ?? 'My Site';
+  });
+
+  const plugins = await getCached(c, 'cms:plugins', 300, async () => {
+    const rows = await db.prepare("SELECT id, active FROM plugins").all<{ id: string; active: number }>();
+    return Object.fromEntries(rows.results.map((p) => [p.id, p.active === 1]));
+  });
+
+  initActivePlugins(registry, plugins);
+
+  let post: { title: string; content: string; updated_at: string } | null = null;
+
+  if (slug) {
+    post = await db.prepare(
+      "SELECT title, content, updated_at FROM posts WHERE slug = ? AND published = 1"
+    ).bind(slug).first<{ title: string; content: string; updated_at: string }>();
+    if (!post) return c.notFound();
+  } else {
+    post = await db.prepare(
+      "SELECT title, content, updated_at FROM posts WHERE published = 1 ORDER BY updated_at DESC LIMIT 1"
+    ).first<{ title: string; content: string; updated_at: string }>();
+  }
+
+  const title = post?.title ?? siteName;
+  const meta = { title, description: '', url: new URL(c.req.url).href };
+
+  const headPayload = await registry.executePipeline('render:head', { siteName, title, markup: '', meta });
+
+  let bodyHtml = post ? renderPost(post) : renderHomepage(siteName);
+  const bodyPayload = await registry.executePipeline('render:body', { bodyHtml, post, siteName });
+  bodyHtml = (bodyPayload.bodyHtml as string) ?? bodyHtml;
+
+  const fullHtml = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />' + (headPayload.markup as string) + '</head><body><header style="border-bottom:1px solid #e5e7eb;padding:1.25rem 2rem;"><a href="/" style="font-weight:700;font-size:1.1rem;color:#0f172a;text-decoration:none;">' + esc(siteName) + '</a></header><main style="max-width:720px;margin:2rem auto;padding:0 1.5rem;">' + bodyHtml + '</main><footer style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.8rem;">Powered by PHCloud CMS on Cloudflare Workers</footer></body></html>';
+
+  return c.html(fullHtml);
+});
 
 app.get('/health', (c) => c.json({ ok: true }));
 
