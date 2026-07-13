@@ -34,7 +34,7 @@ export function renderDefaultShell(p: ThemeRenderPayload, postHtml?: string): st
         ${postHtml ?? `<h1>${escapeHtml(p.title)}</h1><div style="line-height:1.7">${p.content}</div>`}
       </main>
       <footer style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.8rem;">
-        Powered by EdgeCMS on Cloudflare Pages
+        Powered by PHCloud CMS on Cloudflare Workers
       </footer>
     </body>
     </html>

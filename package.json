@@ -1,5 +1,5 @@
 {
-  "name": "edge-custom-cms",
+  "name": "phcloudcms",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,9 +8,7 @@
     "build": "tsc --noEmit",
     "deploy": "wrangler deploy",
     "lint": "prettier --check src/ wrangler.jsonc",
-    "lint:fix": "prettier --write src/ wrangler.jsonc",
-    "db:migrate:local": "wrangler d1 execute cms_db --file=/dev/stdin --local",
-    "db:migrate:remote": "wrangler d1 execute cms_db --file=/dev/stdin --remote"
+    "lint:fix": "prettier --write src/ wrangler.jsonc"
   },
   "dependencies": {
     "hono": "^4.12.29",

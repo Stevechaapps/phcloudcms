@@ -11,7 +11,6 @@
 
 > Always use "PHCloud CMS" when referring to the full product.
 > Use "PHCloud" for short in casual contexts.
-> Never use "EdgeCMS" (old name).
 
 ### Logo Concept
 ```
@@ -200,9 +199,6 @@ PHCloud CMS fork. Cloudflare will deploy it automatically.
 - Plugin system with hook pipeline
 - Admin plugin manager UI
 - News SEO hook points
-
-### Changed
-- Renamed from EdgeCMS to PHCloud CMS
 
 ### Fixed
 - TypeScript 7.0 compatibility

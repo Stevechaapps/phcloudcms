@@ -309,7 +309,7 @@ Use these exact category names:
    ↓
 4. Commits + pushes to GitHub
    ↓
-5. Cloudflare Pages auto-deploys
+5. Cloudflare Workers Build auto-deploys
    ↓
 6. Plugin appears in /admin/plugins
    ↓

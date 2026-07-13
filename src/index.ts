@@ -19,7 +19,7 @@ type Env = {
   CACHE: KVNamespace;
 };
 
-const SESSION_COOKIE = 'edgecms_session';
+const SESSION_COOKIE = 'phcloudcms_session';
 const SESSION_TTL = 7 * 24 * 60 * 60;
 
 const app = new Hono<{ Bindings: Env }>();
@@ -255,7 +255,7 @@ app.get('/:slug?', async (c) => {
   const bodyPayload = await registry.executePipeline('render:body', { bodyHtml, post, siteName });
   bodyHtml = (bodyPayload.bodyHtml as string) ?? bodyHtml;
 
-  const fullHtml = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />' + (headPayload.markup as string) + '</head><body><header style="border-bottom:1px solid #e5e7eb;padding:1.25rem 2rem;"><a href="/" style="font-weight:700;font-size:1.1rem;color:#0f172a;text-decoration:none;">' + esc(siteName) + '</a></header><main style="max-width:720px;margin:2rem auto;padding:0 1.5rem;">' + bodyHtml + '</main><footer style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.8rem;">Powered by EdgeCMS on Cloudflare</footer></body></html>';
+  const fullHtml = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />' + (headPayload.markup as string) + '</head><body><header style="border-bottom:1px solid #e5e7eb;padding:1.25rem 2rem;"><a href="/" style="font-weight:700;font-size:1.1rem;color:#0f172a;text-decoration:none;">' + esc(siteName) + '</a></header><main style="max-width:720px;margin:2rem auto;padding:0 1.5rem;">' + bodyHtml + '</main><footer style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.8rem;">Powered by PHCloud CMS on Cloudflare Workers</footer></body></html>';
 
   return c.html(fullHtml);
 });

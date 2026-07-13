@@ -214,7 +214,7 @@ User maintains separate fork for deployment:
 ## Brand Guidelines
 
 See `BRAND.md` for full guidelines. Key points:
-- Name: **PHCloud CMS** (NOT EdgeCMS)
+- Name: **PHCloud CMS**
 - Tagline: "The world's lightest CMS"
 - Colors: Cloudflare Orange #F97316, Cloud Blue #3B82F6, Slate #0F172A
 - Voice: Developer-first, honest, lightweight ethos

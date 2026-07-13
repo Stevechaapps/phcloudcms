@@ -20,7 +20,7 @@ export const AVAILABLE_PLUGINS = [
     description: 'Automatic meta tags, Open Graph, Twitter Cards, and canonical URLs.',
     category: 'seo' as const,
     version: '1.0.0',
-    author: 'EdgeCMS',
+    author: 'PHCloud CMS',
     hooks: ['render:head'],
   },
   {
@@ -29,7 +29,7 @@ export const AVAILABLE_PLUGINS = [
     description: 'Generates an XML sitemap at /sitemap.xml for search engines.',
     category: 'seo' as const,
     version: '1.0.0',
-    author: 'EdgeCMS',
+    author: 'PHCloud CMS',
     hooks: ['render:sitemap'],
   },
 ];

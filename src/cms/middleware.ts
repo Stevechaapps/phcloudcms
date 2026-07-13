@@ -40,7 +40,7 @@ function serveOnboardingUI(c: Context): Response {
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>Setup · EdgeCMS</title>
+      <title>Setup · PHCloud CMS</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -85,8 +85,8 @@ function serveOnboardingUI(c: Context): Response {
     </head>
     <body>
       <div class="card">
-        <h1>📦 EdgeCMS Setup</h1>
-        <p class="sub">Your code is live on Cloudflare Pages. Configure your site and create your admin account.</p>
+        <h1>📦 PHCloud CMS Setup</h1>
+        <p class="sub">Your code is live on Cloudflare Workers. Configure your site and create your admin account.</p>
         <form id="installForm">
           <label for="siteName">Site Name</label>
           <input type="text" id="siteName" name="siteName" placeholder="My Company Website" required />

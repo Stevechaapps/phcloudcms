@@ -43,7 +43,7 @@ return `<!DOCTYPE html>
 </head>
 <body>
 <div class="topbar">
-<strong>EdgeCMS</strong>
+<strong>PHCloud CMS</strong>
 <nav>
 <a href="/admin">Dashboard</a>
 <a href="/admin/posts">Posts</a>
@@ -256,7 +256,7 @@ return `<!DOCTYPE html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Login · EdgeCMS</title>
+<title>Login · PHCloud CMS</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:system-ui,sans-serif;background:#0f172a;color:white;min-height:100vh;display:flex;align-items:center;justify-content:center}
