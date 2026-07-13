@@ -8,15 +8,14 @@
     {
       "binding": "DB",
       "database_name": "phcloudcms_db",
-      // Replace with the database_id printed by `npx wrangler d1 create`
-      "database_id": "YOUR_D1_DATABASE_ID",
+      "database_id": "a1c2792f-4803-4cd8-b790-f27a4ef73906",
     },
   ],
   "kv_namespaces": [
     {
       "binding": "CACHE",
-      // Replace with the id printed by `npx wrangler kv namespace create` (a hex string, not the name)
-      "id": "YOUR_KV_NAMESPACE_ID",
+      // KV namespace id (hex) — identifier only, safe to commit
+      "id": "af58c5050ff34f6381743e668131bff6",
     },
   ],
 }
