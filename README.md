@@ -22,18 +22,18 @@ No CLI, no config files, no `wrangler.jsonc` to edit. Everything happens in your
 From the Cloudflare Dashboard:
 
 **D1 database** (stores posts, settings, admin accounts):
-1. **Workers & Pages → D1 → Create database**
+1. Cloudflare Dashboard → **Workers & Pages** → **D1** (left sidebar) → **Create database**
 2. Name: `phcloudcms-db` → **Create**
 
 **KV namespace** (sessions + cache):
-1. **Workers & Pages → KV → Create namespace**
+1. Cloudflare Dashboard → **Workers & Pages** → **KV** (left sidebar) → **Create namespace**
 2. Name: `phcloudcms-cache` → **Create**
 
 No IDs to copy — you'll bind them by name in the next step.
 
 ### Step 3 · Connect to Cloudflare Pages
 
-1. Cloudflare Dashboard → **Workers & Pages** → **Pages** → **Create a project** → **Connect to Git**
+1. Cloudflare Dashboard → **Workers & Pages** → **Create application** → tab **Pages** → **Connect to Git**
 2. Authorize GitHub → select your `phcloudcms` fork
 3. **Build settings** — leave everything default:
    - Build command: *(leave blank)*
@@ -44,15 +44,16 @@ No IDs to copy — you'll bind them by name in the next step.
 
 After the first deploy completes:
 
-1. Go to your Pages project → **Settings** → **Functions**
-2. Under **D1 database bindings**, click **Add binding**:
+1. Cloudflare Dashboard → **Workers & Pages** → **Pages** (tab) → click your project
+2. Go to **Settings** → **Functions** (tab)
+3. Under **D1 database bindings**, click **Add binding**:
    - Variable name: `DB`
    - Database: select `phcloudcms-db` (or whatever you named it)
-3. Under **KV namespace bindings**, click **Add binding**:
+4. Under **KV namespace bindings**, click **Add binding**:
    - Variable name: `CACHE`
    - KV namespace: select `phcloudcms-cache` (or whatever you named it)
-4. Click **Save**
-5. Go to **Deployments** → find your deployment → click **...** → **Retry deployment**
+5. Click **Save**
+6. Go to **Deployments** → find your first deployment → click **...** → **Retry deployment**
 
 ### Step 5 · Run the onboarding wizard
 
