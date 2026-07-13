@@ -4,11 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler pages dev functions --d1 DB --kv CACHE",
     "build": "tsc --noEmit",
-    "deploy": "wrangler deploy",
-    "lint": "prettier --check src/ wrangler.jsonc",
-    "lint:fix": "prettier --write src/ wrangler.jsonc"
+    "lint": "prettier --check src/",
+    "lint:fix": "prettier --write src/"
   },
   "dependencies": {
     "hono": "^4.12.29"

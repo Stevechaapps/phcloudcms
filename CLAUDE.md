@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PHCloud CMS** — The world's lightest CMS, running entirely on Cloudflare Workers free tier.
+**PHCloud CMS** — The world's lightest CMS, running entirely on Cloudflare free tier via Cloudflare Pages.
 
-- 12 files, ~50KB bundle, zero runtime dependencies
 - Hono v4.12 framework (NOT Astro)
 - TypeScript 7.0 with full type safety
 - Cloudflare D1 (SQLite) + KV for persistence
+- ~50KB bundle, zero runtime dependencies
 
 ---
 
@@ -21,11 +21,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies
 npm install
 
-# Run locally (dev server on :8787)
+# Run locally (dev server on http://localhost:8788)
 npm run dev
-
-# Deploy to Cloudflare
-npm run deploy
 
 # TypeScript check
 npx tsc --noEmit
@@ -37,21 +34,38 @@ npx tsc --noEmit
 
 ```
 phcloud/
+├── functions/
+│   └── [[path]].ts           # Cloudflare Pages catch-all handler (entry point)
 ├── src/
 │   ├── cms/
-│   │   └── registry.ts      # Plugin hook system (CMSRegistry class)
+│   │   ├── registry.ts       # Plugin hook system (CMSRegistry class)
+│   │   ├── middleware.ts     # Onboarding guard + cache helper
+│   │   ├── d1.ts             # D1 schema, migrations, queries
+│   │   └── auth.ts           # Password hashing (PBKDF2)
 │   ├── plugins/
-│   │   ├── index.ts         # Plugin auto-discovery hub
-│   │   ├── seo.ts           # SEO plugin (meta tags, Open Graph)
-│   │   └── sitemap.ts       # XML sitemap generator
-│   ├── themes/
-│   │   └── default.ts       # Default theme (mobile-responsive)
-│   ├── admin.ts             # Admin panel HTML rendering
-│   └── index.ts             # Main Hono router (all routes)
-├── static/                   # Static assets (favicon, etc.)
-├── wrangler.jsonc           # Cloudflare config (D1, KV bindings)
-└── package.json             # Dependencies + scripts
+│   │   ├── index.ts          # Plugin auto-discovery hub
+│   │   ├── seo.ts            # SEO plugin (meta tags, Open Graph)
+│   │   └── sitemap.ts        # XML sitemap generator
+│   ├── admin.ts              # Admin panel HTML rendering
+│   └── index.ts              # Main Hono router (all routes)
+└── package.json              # Dependencies + scripts
 ```
+
+---
+
+## One-Click Deploy for Users
+
+1. **Fork** this repo to your GitHub
+2. Go to **Cloudflare Dashboard → Pages → Create a project → Connect to Git**
+3. Select your fork, accept default build settings (no build command needed)
+4. In **Settings → Functions** add these bindings:
+   - **D1 database**: Variable name `DB` → select or create a D1 database
+   - **KV namespace**: Variable name `CACHE` → select or create a KV namespace
+5. Deploy
+6. Visit your Pages URL → the install wizard appears → fill in site name + admin credentials
+7. Done — auto-login to `/admin`
+
+That's it. No CLI, no config files, no wrangler.
 
 ---
 
@@ -81,14 +95,17 @@ All routes in `src/index.ts` use Hono router:
 | Route | Purpose |
 |-------|---------|
 | `GET /` | Public homepage |
-| `GET /post/:slug` | Single post view |
+| `GET /:slug` | Single post view |
 | `GET /admin` | Admin dashboard |
+| `GET /admin/login` | Login form |
 | `POST /api/auth/login` | Session auth |
-| `POST /api/posts` | Create post |
-| `PUT /api/posts/:id` | Update post |
-| `DELETE /api/posts/:id` | Delete post |
-| `GET /api/plugins` | List plugins |
-| `POST /api/plugins/:id/toggle` | Toggle plugin |
+| `POST /api/install` | Initial setup (install wizard) |
+| `POST /api/admin/posts` | Create post |
+| `GET /api/admin/posts` | List posts |
+| `PATCH /api/admin/posts/:id` | Update post |
+| `DELETE /api/admin/posts/:id` | Delete post |
+| `PATCH /api/admin/plugins/:id` | Toggle plugin |
+| `GET /sitemap.xml` | XML sitemap |
 
 ### Admin Panel
 
@@ -99,40 +116,26 @@ All routes in `src/index.ts` use Hono router:
 
 ### Database Schema
 
-D1 SQLite (in `wrangler.jsonc` or migrations):
+Tables created automatically on first install via `db.batch()`:
 
 ```sql
-CREATE TABLE posts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  slug TEXT UNIQUE NOT NULL,
-  content TEXT NOT NULL,
-  excerpt TEXT,
-  published INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE config (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
-
-CREATE TABLE plugins (
-  id TEXT PRIMARY KEY,
-  active INTEGER DEFAULT 0
-);
+CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, content TEXT NOT NULL, excerpt TEXT, published INTEGER DEFAULT 0 NOT NULL, created_at TEXT DEFAULT (datetime('now')) NOT NULL, updated_at TEXT DEFAULT (datetime('now')) NOT NULL);
+CREATE TABLE plugins (id TEXT PRIMARY KEY, active INTEGER DEFAULT 0 NOT NULL);
+CREATE TABLE admins (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE DEFAULT 'admin', password_hash TEXT NOT NULL);
 ```
 
 ---
 
 ## Important Conventions
 
-1. **Imports always include `.js` extension** (ES modules for Workers)
+1. **Imports always include `.js` extension** (ES modules)
 2. **Type imports use `import type`** unless the value is needed at runtime
-3. **All HTML responses use `c.html()`** from Hono context
-4. **Empty responses use `c.body(null, 204)`** (not empty string)
-5. **DB queries use explicit types:** `bind().first<DbPost>()`
+3. **All admin API endpoints use `c.req.json()`** (not `parseBody`) — client sends JSON
+4. **All HTML responses use `c.html()`** from Hono context
+5. **Empty responses use `c.body(null, 204)`** (not empty string)
+6. **DB queries use explicit types:** `bind().first<DbPost>()`
+7. **Admin routes must be registered before the `/:slug?` catch-all**
 
 ---
 
@@ -149,30 +152,17 @@ CREATE TABLE plugins (
 1. Add route in `src/index.ts` using `app.get()`, `app.post()`, etc.
 2. Use `initActivePlugins()` to conditionally initialize plugins
 3. Pass `c.env` for D1/KV bindings
+4. Admin routes go BEFORE the `/:slug?` catch-all
 
 ### Testing Locally
 
 ```bash
-# Terminal 1: Run dev server
+# Run dev server (uses local D1 + KV via wrangler)
 npm run dev
 
-# Terminal 2: Test API
-curl http://localhost:8787
-curl http://localhost:8787/sitemap.xml
-
-# Check Cloudflare Worker logs
-wrangler tail
-```
-
-### Deploying
-
-```bash
-# Ensure wrangler.jsonc has correct D1/KV IDs
-wrangler d1 create cms_db           # First time only
-wrangler kv:namespace create cms_cache  # First time only
-
-# Update wrangler.jsonc with binding IDs, then:
-npm run deploy
+# Test API
+curl http://localhost:8788
+curl http://localhost:8788/sitemap.xml
 ```
 
 ---
@@ -185,29 +175,6 @@ npm run deploy
 2. Site owner downloads `.ts` file → copies to their fork
 3. Site owner registers in `src/plugins/index.ts`
 4. Enable via `/admin/plugins`
-
-**Starter templates:**
-- `PLUGIN_STARTER.md` — Plugin template
-- `THEME_STARTER.md` — Theme template (mobile-first CSS)
-
----
-
-## Known Issues & Fixes
-
-| Issue | Fix |
-|-------|-----|
-| `Cannot find name 'CMSRegistry'` | Import as value: `import { CMSRegistry }` not `import type` |
-| `c.body('', 204)` signature error | Use `c.body(null, 204)` — Hono 4.12 requires null for 204 |
-| Post type casting errors | Use explicit `DbPost` type with mapped fields |
-| Circular import in registry.ts | Move `PluginHook` type to top of file |
-
----
-
-## Files Not in This Repo
-
-User maintains separate fork for deployment:
-- `~/my-phcloud-site/` or `~/Desktop/my-phcloud-site/`
-- Copy plugins/themes there for testing before publishing
 
 ---
 

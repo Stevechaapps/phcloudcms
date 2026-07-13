@@ -1,0 +1,4 @@
+# Local development config for PHCloud CMS (Cloudflare Pages)
+# Production: connect repo to Cloudflare Pages dashboard and add D1 + KV bindings there.
+# Local dev: run `npm run dev` — flags pass D1 + KV bindings directly.
+# This file is optional and only used for local development.
