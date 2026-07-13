@@ -110,8 +110,8 @@ function serveOnboardingUI(c: Context): Response {
         </form>
       </div>
       <script>
-        const form = document.getElementById('installForm')!;
-        const errEl = document.getElementById('err')!;
+        const form = document.getElementById('installForm');
+        const errEl = document.getElementById('err');
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
           errEl.style.display = 'none';
