@@ -10,9 +10,11 @@ export async function hashPassword(password: string): Promise<string> {
     { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
     keyMaterial, 256,
   );
-  const bytes = new Uint8Array(bits);
-  // Format: hex(salt):hex(hash)
-  return [...salt, ...bytes].map((b) => b.toString(16).padStart(2, '0')).join(':');
+  const toHex = (arr: Uint8Array) => [...arr].map((b) => b.toString(16).padStart(2, '0')).join('');
+  // Format: "<salt-hex>:<hash-hex>" — single colon separator.
+  // (Previous version joined every byte with ':' so verify could only read
+  // the first two byte-segments — login always failed.)
+  return `${toHex(salt)}:${toHex(new Uint8Array(bits))}`;
 }
 
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {

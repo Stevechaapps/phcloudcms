@@ -158,30 +158,38 @@ app.delete('/api/admin/posts/:id', async (c) => {
 
 app.post('/api/install', async (c) => {
   const db = c.env.DB;
-  const body = await c.req.parseBody();
-  const siteName = String(body.siteName ?? 'My Site');
-  const seo = body.plugin_seo === 'on';
-  const sitemap = body.plugin_sitemap === 'on';
+  try {
+    const body = await c.req.parseBody();
+    const siteName = String(body.siteName ?? 'My Site');
+    const seo = body.plugin_seo === 'on';
+    const sitemap = body.plugin_sitemap === 'on';
 
-  await migrate(db);
-  await seed(db, siteName);
+    await migrate(db);
+    await seed(db, siteName);
 
-  if (seo) await db.prepare("INSERT OR REPLACE INTO plugins (id, active) VALUES ('seo', 1)").run();
-  else await db.prepare("INSERT OR REPLACE INTO plugins (id, active) VALUES ('seo', 0)").run();
-  if (sitemap) await db.prepare("INSERT OR REPLACE INTO plugins (id, active) VALUES ('sitemap', 1)").run();
-  else await db.prepare("INSERT OR REPLACE INTO plugins (id, active) VALUES ('sitemap', 0)").run();
-  // Ensure every bundled plugin has a row (defaults to 0 / inactive)
-  for (const p of AVAILABLE_PLUGINS) {
-    await db.prepare("INSERT OR IGNORE INTO plugins (id, active) VALUES (?, 0)").bind(p.id).run();
+    if (seo) await db.prepare("INSERT OR REPLACE INTO plugins (id, active) VALUES ('seo', 1)").run();
+    else await db.prepare("INSERT OR REPLACE INTO plugins (id, active) VALUES ('seo', 0)").run();
+    if (sitemap) await db.prepare("INSERT OR REPLACE INTO plugins (id, active) VALUES ('sitemap', 1)").run();
+    else await db.prepare("INSERT OR REPLACE INTO plugins (id, active) VALUES ('sitemap', 0)").run();
+    // Ensure every bundled plugin has a row (defaults to 0 / inactive)
+    for (const p of AVAILABLE_PLUGINS) {
+      await db.prepare("INSERT OR IGNORE INTO plugins (id, active) VALUES (?, 0)").bind(p.id).run();
+    }
+
+    const adminUsername = String(body.adminUsername ?? 'admin');
+    const adminPasswordHash = await hashPassword(String(body.adminPassword ?? ''));
+    // INSERT OR REPLACE so re-running the wizard after a partial install
+    // can't trip the UNIQUE(username) constraint.
+    await db.prepare("INSERT OR REPLACE INTO admins (username, password_hash) VALUES (?, ?)")
+      .bind(adminUsername, adminPasswordHash).run();
+
+    await c.env.CACHE.delete('cms:config');
+    return c.redirect('/');
+  } catch (err) {
+    // Surface the real error so install failures are diagnosable from the
+    // wizard UI instead of a generic "Check your D1 binding".
+    return c.body(JSON.stringify({ error: 'install_failed', detail: String(err) }), 500, { 'Content-Type': 'application/json' });
   }
-
-  const adminUsername = String(body.adminUsername ?? 'admin');
-  const adminPasswordHash = await hashPassword(String(body.adminPassword ?? ''));
-  await db.prepare("INSERT INTO admins (username, password_hash) VALUES (?, ?)")
-    .bind(adminUsername, adminPasswordHash).run();
-
-  await c.env.CACHE.delete('cms:config');
-  return c.redirect('/');
 });
 
 // ── Sitemap ───────────────────────────────────────────────────────

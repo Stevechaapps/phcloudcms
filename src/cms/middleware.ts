@@ -116,26 +116,24 @@ function serveOnboardingUI(c: Context): Response {
           e.preventDefault();
           errEl.style.display = 'none';
           const fd = new FormData(form);
-          const body = {
-            siteName: String(fd.get('siteName') ?? ''),
-            adminUsername: String(fd.get('adminUsername') ?? 'admin'),
-            adminPassword: String(fd.get('adminPassword') ?? ''),
-            plugin_seo: fd.get('plugin_seo') === 'on',
-            plugin_sitemap: fd.get('plugin_sitemap') === 'on',
-          };
-          if (!body.adminPassword || body.adminPassword.length < 8) {
+          const pw = String(fd.get('adminPassword') ?? '');
+          if (!pw || pw.length < 8) {
             errEl.style.display = 'block';
             errEl.textContent = 'Password must be at least 8 characters.';
             return;
           }
-          const res = await fetch('/api/install', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          });
+          // Submit as form data — the backend reads fields via c.req.parseBody(),
+          // matching the rest of the app. (A JSON content-type made parseBody
+          // return {} and the admin was created with an empty password.)
+          const res = await fetch('/api/install', { method: 'POST', body: fd });
           if (!res.ok) {
             errEl.style.display = 'block';
-            errEl.textContent = 'Setup failed. Check your Cloudflare D1 binding.';
+            const errBody = await res.text().catch(() => '');
+            let msg = 'Setup failed. Check your Cloudflare D1 binding.';
+            if (errBody) {
+              try { const j = JSON.parse(errBody); msg = 'Setup failed: ' + (j.detail || j.error || errBody); } catch { msg = 'Setup failed: ' + errBody; }
+            }
+            errEl.textContent = msg;
           } else {
             window.location.href = '/';
           }
