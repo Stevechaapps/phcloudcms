@@ -337,6 +337,22 @@ app.get('/admin/plugins', async (c) => {
   return c.html(adminShell('Plugins', pluginsBody(AVAILABLE_PLUGINS, activeSet)));
 });
 
+// ── Manual migration endpoint ─────────────────────────────────────
+// Needed when schema changes are added after initial install.
+// Visit once after deploying a schema update:
+//   GET /api/migrate (requires auth)
+
+app.post('/api/migrate', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  try {
+    await migrate(c.env.DB);
+    return c.json({ ok: true, message: 'Migration complete' });
+  } catch (err) {
+    return c.json({ ok: false, error: String(err) }, 500);
+  }
+});
+
 // ── Plugin bootstrap ──────────────────────────────────────────────
 
 function initActivePlugins(registry: CMSRegistry, active: Record<string, boolean>): void {
