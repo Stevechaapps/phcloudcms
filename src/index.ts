@@ -14,7 +14,7 @@ import { getCookie, setCookie } from 'hono/cookie';
 import { adminShell, dashboardBody, postsBody, newPostBody, editBody, loginForm, pluginsBody, pagesBody, newPageBody, editPageBody, categoriesBody, navBody, settingsBody } from './admin.js';
 
 type Post = { title: string; content: string; updated_at: string };
-type DbPost = Post & { id: number; slug: string; excerpt: string; published: number; type: string };
+type DbPost = Post & { id: number; slug: string; excerpt: string; published: number; type: string; publish_at: string | null };
 type NavItem = { label: string; url: string };
 
 type Env = {
@@ -28,6 +28,15 @@ const SESSION_TTL = 7 * 24 * 60 * 60;
 const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', onboardingGuard);
+
+// ── Migrate (temporary — run once, then remove) ─────────────────
+
+app.get('/api/migrate', async (c) => {
+  await migrate(c.env.DB);
+  await c.env.CACHE.delete('cms:config');
+  await c.env.CACHE.delete('cms:posts:pub');
+  return c.json({ ok: true, message: 'Migration complete' });
+});
 
 // ── Auth ──────────────────────────────────────────────────────────
 
@@ -76,18 +85,22 @@ app.post('/api/admin/posts', async (c) => {
     content?: string;
     excerpt?: string;
     published?: boolean;
+    publish_at?: string | null;
     category_ids?: number[];
   }>();
   const db = c.env.DB;
   const now = new Date().toISOString();
+  const publishAt = body.publish_at || null;
+  const published = body.publish_at ? 0 : (body.published === true ? 1 : 0);
   const result = await db.prepare(
-    "INSERT INTO posts (title, slug, content, excerpt, published, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO posts (title, slug, content, excerpt, published, publish_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   ).bind(
     body.title ?? '',
     body.slug ?? '',
     body.content ?? '',
     body.excerpt ?? '',
-    body.published === true ? 1 : 0,
+    published,
+    publishAt,
     now,
     now,
   ).run();
@@ -109,8 +122,8 @@ app.get('/api/admin/posts', async (c) => {
   if (auth instanceof Response) return auth;
 
   const rows = await c.env.DB.prepare(
-    "SELECT id, title, slug, published, updated_at FROM posts ORDER BY updated_at DESC"
-  ).all<{ id: number; title: string; slug: string; published: number; updated_at: string }>();
+    "SELECT id, title, slug, published, publish_at, updated_at FROM posts ORDER BY updated_at DESC"
+  ).all<{ id: number; title: string; slug: string; published: number; publish_at: string | null; updated_at: string }>();
   return c.json(rows.results);
 });
 
@@ -135,18 +148,22 @@ app.patch('/api/admin/posts/:id', async (c) => {
     content?: string;
     excerpt?: string;
     published?: boolean;
+    publish_at?: string | null;
     category_ids?: number[];
   }>();
   const now = new Date().toISOString();
+  const publishAt = body.publish_at || null;
+  const published = body.publish_at ? 0 : (body.published === true ? 1 : 0);
 
   await c.env.DB.prepare(
-    "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, updated_at=? WHERE id=?"
+    "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, publish_at=?, updated_at=? WHERE id=?"
   ).bind(
     body.title ?? '',
     body.slug ?? '',
     body.content ?? '',
     body.excerpt ?? '',
-    body.published === true ? 1 : 0,
+    published,
+    publishAt,
     now,
     id,
   ).run();
@@ -226,6 +243,7 @@ app.post('/api/install', async (c) => {
 app.get('/sitemap.xml', async (c) => {
   const registry = new CMSRegistry();
   const db = c.env.DB;
+  await publishScheduled(db);
 
   const activePlugins = await getCached(c, 'cms:plugins', 300, async () => {
     const rows = await db.prepare("SELECT id, active FROM plugins").all<{ id: string; active: number }>();
@@ -277,7 +295,7 @@ app.get('/admin/edit/:id', async (c) => {
   const id = c.req.param('id');
   const post = await c.env.DB.prepare("SELECT * FROM posts WHERE id = ?").bind(id).first<DbPost>();
   if (!post) return c.notFound();
-  return c.html(adminShell('Edit Post', editBody({ id: post.id, title: post.title, slug: post.slug, content: post.content, excerpt: post.excerpt, published: post.published, updated_at: post.updated_at })));
+  return c.html(adminShell('Edit Post', editBody({ id: post.id, title: post.title, slug: post.slug, content: post.content, excerpt: post.excerpt, published: post.published, publish_at: post.publish_at, updated_at: post.updated_at })));
 });
 
 app.get('/admin/pages', async (c) => {
@@ -385,6 +403,7 @@ app.get('/health', (c) => c.json({ ok: true }));
 
 app.get('/feed.xml', async (c) => {
   const db = c.env.DB;
+  await publishScheduled(db);
   const siteName = await getCached(c, 'cms:config', 600, async () => {
     return await getSetting(db, 'site_name') ?? 'My Site';
   });
@@ -409,6 +428,7 @@ app.get('/feed.xml', async (c) => {
 app.get('/search', async (c) => {
   const q = c.req.query('q') ?? '';
   const db = c.env.DB;
+  await publishScheduled(db);
   const siteName = await getCached(c, 'cms:config', 600, async () => {
     return await getSetting(db, 'site_name') ?? 'My Site';
   });
@@ -438,6 +458,7 @@ app.get('/search', async (c) => {
 
 app.get('/category/:slug', async (c) => {
   const db = c.env.DB;
+  await publishScheduled(db);
   const catSlug = c.req.param('slug');
   const cat = await db.prepare("SELECT id, name FROM categories WHERE slug = ?").bind(catSlug).first<{ id: number; name: string }>();
   if (!cat) return c.html('<h1>Category not found</h1><p><a href="/">Go home</a></p>', 404);
@@ -564,12 +585,22 @@ app.delete('/api/admin/pages/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Lazy publish — auto-publish scheduled posts ─────────────────
+
+async function publishScheduled(db: D1Database): Promise<void> {
+  const rows = await db.prepare("SELECT id FROM posts WHERE published = 0 AND publish_at IS NOT NULL AND publish_at <= datetime('now')").all<{ id: number }>();
+  if (!rows.results.length) return;
+  const ids = rows.results.map(r => r.id);
+  await db.prepare(`UPDATE posts SET published = 1, publish_at = NULL WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).run();
+}
+
 // ── Public pages (catch-all — must be after all specific routes) ──
 
 app.get('/:slug?', async (c) => {
   const registry = new CMSRegistry();
   const db = c.env.DB;
   const slug = c.req.param('slug') ?? '';
+  await publishScheduled(db);
 
   const [siteName, navVal, plugins, themeId] = await Promise.all([
     getCached(c, 'cms:config', 600, async () => await getSetting(db, 'site_name') ?? 'My Site') as Promise<string>,

@@ -16,6 +16,7 @@ export const SCHEMA_STATEMENTS: string[] = [
     excerpt     TEXT,
     type        TEXT    NOT NULL DEFAULT 'post',
     published   INTEGER DEFAULT 0 NOT NULL,
+    publish_at  TEXT,
     created_at  TEXT    DEFAULT (datetime('now')) NOT NULL,
     updated_at  TEXT    DEFAULT (datetime('now')) NOT NULL
   )`,
@@ -52,6 +53,7 @@ export async function migrate(db: D1Database): Promise<void> {
   }
   // Add columns that may not exist on older databases
   try { await db.prepare("ALTER TABLE posts ADD COLUMN type TEXT NOT NULL DEFAULT 'post'").run(); } catch {}
+  try { await db.prepare("ALTER TABLE posts ADD COLUMN publish_at TEXT").run(); } catch {}
   // Now create indexes safely (column exists)
   for (const stmt of SCHEMA_STATEMENTS) {
     if (stmt.startsWith('CREATE INDEX')) {

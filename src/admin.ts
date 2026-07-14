@@ -23,6 +23,7 @@ const styles = [
   '.badge{display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:600}',
   '.badge-pub{background:#dcfce7;color:#166534}',
   '.badge-draft{background:#fef3c7;color:#92400e}',
+  '.badge-info{background:#dbeafe;color:#1e40af}',
   '.btn{display:inline-flex;align-items:center;gap:0.35rem;padding:0.5rem 0.9rem;border-radius:5px;font-size:0.8rem;text-decoration:none;cursor:pointer;border:none;font-weight:500;transition:all 0.12s}',
   '.btn-primary{background:#0f172a;color:white}.btn-primary:hover{background:#1e293b}',
   '.btn-secondary{background:#e5e7eb;color:#1e293b}.btn-secondary:hover{background:#d1d5db}',
@@ -135,10 +136,12 @@ document.getElementById('pub').textContent=posts.filter(function(p){return p.pub
 var tbody=document.getElementById('posts');
 if(!posts.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b">No posts yet. <a href="/admin/new">Create one</a>.</td></tr>';return}
 tbody.innerHTML=posts.map(function(p){
+var badge=p.published?'badge-pub':(p.publish_at?'badge-info':'badge-draft');
+var label=p.published?'Published':(p.publish_at?'Scheduled':'Draft');
 return '<tr>'
 +'<td><strong>'+ea(p.title)+'</strong></td>'
 +'<td style="color:#64748b">/'+ea(p.slug)+'</td>'
-+'<td><span class="badge '+(p.published?'badge-pub':'badge-draft')+'">'+(p.published?'Published':'Draft')+'</span></td>'
++'<td><span class="badge '+badge+'">'+label+'</span></td>'
 +'<td style="color:#64748b;font-size:0.85rem">'+new Date(p.updated_at).toLocaleDateString()+'</td>'
 +'<td style="display:flex;gap:0.4rem">'
 +'<a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a>'
@@ -162,10 +165,13 @@ fetch('/api/admin/posts').then(function(r){return r.json()}).then(function(posts
 function ea(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 var tbody=document.getElementById('posts');
 if(!posts.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b">No posts yet.</td></tr>';return}
-tbody.innerHTML=posts.map(function(p){return '<tr>'
+tbody.innerHTML=posts.map(function(p){
+var badge=p.published?'badge-pub':(p.publish_at?'badge-info':'badge-draft');
+var label=p.published?'Published':(p.publish_at?'Scheduled':'Draft');
+return '<tr>'
 +'<td><strong>'+ea(p.title)+'</strong></td>'
 +'<td style="color:#64748b">/'+ea(p.slug)+'</td>'
-+'<td><span class="badge '+(p.published?'badge-pub':'badge-draft')+'">'+(p.published?'Published':'Draft')+'</span></td>'
++'<td><span class="badge '+badge+'">'+label+'</span></td>'
 +'<td style="color:#64748b;font-size:0.85rem">'+new Date(p.updated_at).toLocaleDateString()+'</td>'
 +'<td style="display:flex;gap:0.4rem">'
 +'<a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a>'
@@ -212,6 +218,11 @@ return `<h2>New Post</h2>
 <div id="catCheckboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem"></div>
 </div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" /> Publish immediately</label></div>
+<div class="form-group"><label><input type="checkbox" id="schedule" onchange="scheduleToggle()" /> Schedule for later</label>
+<input type="datetime-local" id="publish_at" style="display:none;margin-top:0.4rem" /></div>
+<script>
+function scheduleToggle(){var s=document.getElementById('schedule'),p=document.getElementById('publish_at'),c=document.getElementById('published');if(s.checked){p.style.display='block';c.checked=false}else{p.style.display='none';p.value=''}}
+</script>
 <div style="display:flex;gap:0.75rem">
 <button type="submit" class="btn btn-primary">Save Post</button>
 <a href="/admin/posts" class="btn btn-secondary">Cancel</a>
@@ -253,6 +264,7 @@ slug:String(fd.get('slug')||''),
 content:String(fd.get('content')||''),
 excerpt:String(fd.get('excerpt')||''),
 published:document.getElementById('published').checked,
+publish_at:document.getElementById('publish_at').value||null,
 category_ids:getCatIds()
 })}).then(function(res){
 if(res.ok){
@@ -276,10 +288,13 @@ slug: string;
 content: string;
 excerpt?: string;
 published: string | number;
+publish_at?: string | null;
 updated_at: string;
 }): string {
 var id = String(post.id);
 var checked = (post.published == 1 || post.published === '1') ? 'checked' : '';
+var hasSchedule = !!post.publish_at;
+var scheduleChecked = hasSchedule ? 'checked' : '';
 return `<h2>Edit Post</h2>
 <form id="form" style="max-width:800px">
 <div class="card">
@@ -314,6 +329,11 @@ return `<h2>Edit Post</h2>
 <div id="catCheckboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem"></div>
 </div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" ${checked} /> Published</label></div>
+<div class="form-group"><label><input type="checkbox" id="schedule" onchange="scheduleToggle()" ${scheduleChecked} /> Schedule for later</label>
+<input type="datetime-local" id="publish_at" style="${hasSchedule?'display:block':'display:none'};margin-top:0.4rem" value="${post.publish_at ? post.publish_at.replace('Z','').substring(0,19) : ''}" /></div>
+<script>
+function scheduleToggle(){var s=document.getElementById('schedule'),p=document.getElementById('publish_at'),c=document.getElementById('published');if(s.checked){p.style.display='block';c.checked=false}else{p.style.display='none';p.value=''}}
+</script>
 <div style="font-size:0.85rem;color:#64748b;margin-bottom:1rem">Last updated: ${post.updated_at}</div>
 <div style="display:flex;gap:0.75rem">
 <button type="submit" class="btn btn-primary">Update Post</button>
@@ -324,7 +344,7 @@ return `<h2>Edit Post</h2>
 </form>
 <script>
 function mdWrap(e,c,ph){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart,en=ta.selectionEnd,val=ta.value,sel=val.substring(s,en)||ph||'text';ta.value=val.substring(0,s)+c+sel+c+val.substring(en);ta.selectionStart=s+c.length;ta.selectionEnd=s+c.length+sel.length;ta.focus()}
-function mdLine(e,p){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart,ls=ta.value.lastIndexOf('\n',s-1)+1;ta.value=ta.value.substring(0,ls)+p+ta.value.substring(ls);ta.selectionStart=ta.selectionEnd=s+p.length;ta.focus()}
+function mdLine(e,p){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart;var ls=ta.value.lastIndexOf('\n',s-1)+1;ta.value=ta.value.substring(0,ls)+p+ta.value.substring(ls);ta.selectionStart=ta.selectionEnd=s+p.length;ta.focus()}
 function mdLink(e){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart,en=ta.selectionEnd,val=ta.value,sel=val.substring(s,en)||'link text';ta.value=val.substring(0,s)+'['+sel+'](url)'+val.substring(en);ta.selectionStart=s+sel.length+2;ta.selectionEnd=s+sel.length+2+3;ta.focus()}
 function mdImage(e){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart,en=ta.selectionEnd,val=ta.value,sel=val.substring(s,en)||'alt';ta.value=val.substring(0,s)+'!['+sel+'](url)'+val.substring(en);ta.selectionStart=s+sel.length+3;ta.selectionEnd=s+sel.length+3+3;ta.focus()}
 function togglePreview(e){e.preventDefault();var ta=document.getElementById('content'),pre=document.getElementById('preview');if(pre.style.display=='block'){pre.style.display='none';ta.style.display='block';return}ta.style.display='none';pre.style.display='block';pre.innerHTML=renderMd(ta.value)}
@@ -360,6 +380,7 @@ slug:String(fd.get('slug')||''),
 content:String(fd.get('content')||''),
 excerpt:String(fd.get('excerpt')||''),
 published:document.getElementById('published').checked,
+publish_at:document.getElementById('publish_at').value||null,
 category_ids:getCatIds()
 })}).then(function(res){
 if(res.ok){status.style.color='#16a34a';status.textContent='Updated!'}
