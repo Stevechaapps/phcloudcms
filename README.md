@@ -81,7 +81,7 @@ This connects your fork to Cloudflare so every push deploys automatically.
 1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com)
 2. In the left sidebar, click **Workers & Pages**
 3. Click the **Create application** button (blue, top-right area)
-4. Under **Import a repository**, click **Get started**
+4. Click **Continue with Github**
 
 ### Authorize GitHub (first time only)
 
