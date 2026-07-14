@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --d1 DB --kv CACHE",
-    "build": "tsc --noEmit",
+    "dev": "node scripts/generate-theme-index.js && wrangler dev --d1 DB --kv CACHE",
+    "build": "node scripts/generate-theme-index.js && tsc --noEmit",
     "lint": "prettier --check src/",
     "lint:fix": "prettier --write src/"
   },

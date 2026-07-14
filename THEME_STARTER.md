@@ -384,8 +384,7 @@ Before publishing your theme:
 # 1. Copy to PHCloud fork
 cp src/themes/your-theme.ts ~/phcloud/src/themes/
 
-# 2. Register it
-# Edit ~/phcloud/src/plugins/index.ts (or themes/index.ts)
+# 2. Done — auto-discovery handles the rest
 
 # 3. Run locally
 cd ~/phcloud

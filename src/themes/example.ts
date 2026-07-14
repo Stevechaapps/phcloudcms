@@ -3,7 +3,7 @@
 // Steps:
 //   1. Copy this file to src/themes/my-theme.ts
 //   2. Edit the id, name, css, and template overrides below
-//   3. Add import './my-theme.js'; to src/themes/index.ts
+//   3. The build script auto-discovers themes in src/themes/ — no need to edit index.ts
 //   4. Commit, push, deploy
 //   5. Select it in Admin → Settings → Public Site Theme
 

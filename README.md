@@ -292,18 +292,25 @@ npx tsc --noEmit
 ## Features
 
 | Feature | Description |
-|---|---|
-| **Admin Panel** | Create/edit/publish/delete posts from a browser dashboard |
-| **Plugin System** | WordPress-style hooks in TypeScript, distributed via GitHub |
-| **Onboarding Wizard** | Browser-based first-run setup |
+|---|---|---|
+| **Admin Panel** | Dashboard, full CRUD for posts/pages/categories, navigation editor, settings |
+| **Markdown Editor** | Toolbar (bold, italic, headings, links, lists, code, preview) + paste-to-upload images |
+| **Image Upload** | Paste any image → auto-uploaded to Imgur → Markdown inserted at cursor |
+| **Pages** | Static pages (About, Contact, Privacy, etc.) alongside posts |
+| **Categories** | Organize content with categories, browse by `/category/:slug` |
+| **Navigation** | Custom header links, editable from admin |
+| **Search** | Full-text search at `/search?q=...` |
+| **RSS Feed** | Auto-generated `/feed.xml` |
+| **Theme System** | Switchable themes via CSS variables, create/share your own (see `THEMES.md`) |
+| **Dark Mode** | Built-in dark theme — select in Admin → Settings |
+| **Plugin System** | Hooks-based plugins in TypeScript, distributed via GitHub |
+| **Onboarding Wizard** | First-run setup via browser |
 | **SEO Built-in** | Meta tags, Open Graph, Twitter Cards |
 | **XML Sitemap** | Auto-generated `/sitemap.xml` |
-| **Markdown Editor** | Write in Markdown with paste-to-upload image support |
-| **Image Upload** | Paste images → auto-uploaded to Imgur → Markdown inserted at cursor |
 | **Session Auth** | PBKDF2 hashing, HTTP-only cookies, KV sessions |
 | **KV Caching** | Config + posts cached for speed |
 | **Free Hosting** | Cloudflare free tier |
-| **Auto Deploy** | Push to `main` → auto-deploys |
+| **Auto Deploy** | Push to `main` → deploys via Workers Builds |
 
 ---
 
@@ -346,6 +353,7 @@ PHCloud supports custom themes. A theme controls the look of your public site �
 | Theme | Description |
 |-------|-------------|
 | **Default** | Clean blog theme, orange accent, card-based post list, responsive |
+| **Dark Mode** | Dark background, lighter text, great for reading at night |
 
 Select a theme in **Admin → Settings → Public Site Theme**.
 
@@ -361,7 +369,7 @@ Developer → Creates theme → Adds to fork → Commits → Publishes on GitHub
 
 1. Copy `src/themes/example.ts` to `src/themes/my-theme.ts`
 2. Edit the CSS and template functions in your new file
-3. Add `import './my-theme.js';` to `src/themes/index.ts`
+3. Run `npm run dev` — the build script auto-discovers any new theme; no need to edit `index.ts`
 4. Commit and push — Workers Builds deploys automatically
 5. Select it in **Admin → Settings → Public Site Theme**
 

@@ -143,8 +143,8 @@ Replace ALL placeholders in this README:
 
 1. Download `src/themes/[your-theme].ts`
 2. Copy to your PHCloud fork: `src/themes/[your-theme].ts`
-3. Register in `src/plugins/index.ts` (see docs)
-4. Enable in /admin/plugins
+3. The build script auto-discovers any theme in `src/themes/` — no manual registration needed
+4. Select it in **Admin → Settings → Public Site Theme**
 
 ## 🎨 Customize
 

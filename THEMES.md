@@ -31,10 +31,9 @@ cp src/themes/example.ts src/themes/my-theme.ts
 ```
 
 1. Edit `src/themes/my-theme.ts` — change the CSS and template functions
-2. Add `import './my-theme.js';` to `src/themes/index.ts`
-3. Run `npm run dev` to preview locally
-4. Commit and push — Workers Builds deploys automatically
-5. Select your theme in **Admin → Settings → Public Site Theme**
+2. Run `npm run dev` — the build script auto-discovers the theme; no need to edit `index.ts`
+3. Commit and push — Workers Builds deploys automatically
+4. Select your theme in **Admin → Settings → Public Site Theme**
 
 ---
 
@@ -271,11 +270,13 @@ You don't have to use these — they're a convenience. Write plain CSS if you pr
 Themes follow the same GitHub-based model as plugins:
 
 1. Create a fork of the PHCloud repo (or a standalone GitHub repo)
-2. Develop your theme in `src/themes/` and register it in `src/themes/index.ts`
+2. Develop your theme in `src/themes/`
 3. Document the theme in your repo's README — include a screenshot
-4. Users copy your `.ts` file into their own fork's `src/themes/` directory and add the import to `src/themes/index.ts`
+4. Users copy your `.ts` file into their own fork's `src/themes/` directory
+5. Done — the build script (`node scripts/generate-theme-index.js`) auto-discovers any new `.ts` file in `src/themes/` on every `npm run dev` or `npm run build`
+6. Users commit and push — Workers Builds re-deploys automatically
 
-That's it. No package manager, no registry, no build step.
+That's it. No package manager, no registry, no editing index files, no build step.
 
 ---
 
