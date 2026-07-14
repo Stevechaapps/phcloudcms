@@ -2,3 +2,18 @@ name = "phcloudcms"
 compatibility_date = "2026-07-14"
 main = "src/index.ts"
 workers_dev = true
+
+# ── D1 Database ─────────────────────────────────────────────────────
+# Replace <YOUR_D1_DATABASE_ID> with your actual D1 database ID.
+# Get it from: Cloudflare Dashboard → D1 SQL database → click your db → copy the ID.
+[[d1_databases]]
+binding = "DB"
+database_name = "phcloud-db"
+database_id = "<YOUR_D1_DATABASE_ID>"
+
+# ── KV Namespace ────────────────────────────────────────────────────
+# Replace <YOUR_KV_NAMESPACE_ID> with your actual KV namespace ID.
+# Get it from: Cloudflare Dashboard → Workers KV → click your namespace → copy the ID.
+[[kv_namespaces]]
+binding = "CACHE"
+id = "<YOUR_KV_NAMESPACE_ID>"

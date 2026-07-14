@@ -54,13 +54,11 @@ phcloud/
 ## One-Click Deploy for Users
 
 1. **Fork** this repo to your GitHub
-2. Go to **Cloudflare Dashboard → Workers & Pages → Create application → Import a repository**
-3. Select your fork, leave build settings default (blank build command)
-4. In **Settings → Bindings** add:
-   - **D1 database**: Variable name `DB` → select or create a D1 database
-   - **KV namespace**: Variable name `CACHE` → select or create a KV namespace
-5. Redeploy (Retry deployment or push a commit)
-6. Visit your Worker URL → the install wizard appears → fill in site name + admin credentials
+2. Create a **D1 database** in the Cloudflare dashboard, copy its ID
+3. Create a **KV namespace** in the Cloudflare dashboard, copy its ID
+4. **Edit `wrangler.toml`** in your fork — paste the D1 ID and KV ID
+5. Go to **Cloudflare Dashboard → Workers & Pages → Create application → Continue with Github** → select your fork
+6. Wait for deploy → visit your Worker URL → fill in site name + admin credentials
 7. Done — auto-login to `/admin`
 
 ---
