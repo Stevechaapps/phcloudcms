@@ -167,12 +167,17 @@ return `<h2 style="margin-bottom:1.5rem">New Post</h2>
 <div id="catCheckboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem"></div>
 </div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" /> Publish immediately</label></div>
+<div class="form-group"><label><input type="checkbox" id="schedule" onchange="scheduleToggle()" /> Schedule for later</label>
+<input type="datetime-local" id="publish_at" name="publish_at" style="display:none;margin-top:0.4rem" /></div>
 <div style="display:flex;gap:0.75rem">
 <button type="submit" class="btn btn-primary">Save Post</button>
 <a href="/admin/posts" class="btn" style="background:#e5e7eb;color:#1e293b">Cancel</a>
 </div>
 <div id="status" style="margin-top:1rem;font-size:0.9rem"></div>
 </form>
+<script>
+function scheduleToggle(){var s=document.getElementById('schedule'),p=document.getElementById('publish_at'),c=document.getElementById('published');if(s.checked){p.style.display='block';c.checked=false}else{p.style.display='none';p.value=''}}
+</script>
 <script>
 var titleEl=document.getElementById('title');
 var slugEl=document.getElementById('slug');
@@ -200,6 +205,7 @@ slug:String(fd.get('slug')||''),
 content:String(fd.get('content')||''),
 excerpt:String(fd.get('excerpt')||''),
 published:document.getElementById('published').checked,
+publish_at:document.getElementById('publish_at').value||null,
 category_ids:getCatIds()
 })}).then(function(res){
 if(res.ok){
@@ -252,10 +258,15 @@ slug: string;
 content: string;
 excerpt?: string;
 published: string | number;
+publish_at?: string | null;
+preview_token?: string | null;
 updated_at: string;
 }): string {
 var id = String(post.id);
 var checked = (post.published == 1 || post.published === '1') ? 'checked' : '';
+var hasSchedule = !!post.publish_at;
+var scheduleChecked = hasSchedule ? 'checked' : '';
+var previewLink = post.preview_token ? '/' + post.slug + '?preview=' + post.preview_token : '';
 return `<h2 style="margin-bottom:1.5rem">Edit Post</h2>
 <form id="form" style="max-width:800px">
 <div class="row">
@@ -269,6 +280,9 @@ return `<h2 style="margin-bottom:1.5rem">Edit Post</h2>
 <div id="catCheckboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem"></div>
 </div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" ${checked} /> Published</label></div>
+<div class="form-group"><label><input type="checkbox" id="schedule" onchange="scheduleToggle()" ${scheduleChecked} /> Schedule for later</label>
+<input type="datetime-local" id="publish_at" name="publish_at" style="${hasSchedule?'display:block':'display:none'};margin-top:0.4rem" value="${post.publish_at ? post.publish_at.replace('Z','').substring(0,19) : ''}" /></div>
+${previewLink ? '<div style="font-size:0.85rem;margin-bottom:0.75rem"><a href="' + previewLink + '" target="_blank" style="color:#3b82f6;text-decoration:none">Preview unpublished post ↗</a></div>' : ''}
 <div style="font-size:0.8rem;color:#64748b;margin-bottom:1rem">Last updated: ${escAttr(post.updated_at)}</div>
 <div style="display:flex;gap:0.75rem">
 <button type="submit" class="btn btn-primary">Update Post</button>
@@ -276,6 +290,9 @@ return `<h2 style="margin-bottom:1.5rem">Edit Post</h2>
 </div>
 <div id="status" style="margin-top:1rem;font-size:0.9rem"></div>
 </form>
+<script>
+function scheduleToggle(){var s=document.getElementById('schedule'),p=document.getElementById('publish_at'),c=document.getElementById('published');if(s.checked){p.style.display='block';c.checked=false}else{p.style.display='none';p.value=''}}
+</script>
 <script>
 var titleEl=document.getElementById('title');
 var slugEl=document.getElementById('slug');
@@ -309,6 +326,7 @@ slug:String(fd.get('slug')||''),
 content:String(fd.get('content')||''),
 excerpt:String(fd.get('excerpt')||''),
 published:document.getElementById('published').checked,
+publish_at:document.getElementById('publish_at').value||null,
 category_ids:getCatIds()
 })}).then(function(res){
 if(res.ok){status.style.color='#16a34a';status.textContent='Updated!'}

@@ -11,8 +11,20 @@ import { getCookie, setCookie } from 'hono/cookie';
 import { adminShell, dashboardBody, postsBody, newPostBody, editBody, loginForm, pluginsBody, pagesBody, newPageBody, editPageBody, categoriesBody, navBody, settingsBody } from './admin.js';
 
 type Post = { title: string; content: string; updated_at: string };
-type DbPost = Post & { id: number; slug: string; excerpt: string; published: number; type: string };
+type DbPost = Post & { id: number; slug: string; excerpt: string; published: number; type: string; publish_at: string | null; preview_token: string | null };
 type NavItem = { label: string; url: string };
+
+function autoExcerpt(content: string): string {
+  const text = content.replace(/[#*>`\[\]!\-]/g, '').replace(/\s+/g, ' ').trim();
+  return text.slice(0, 160) + (text.length > 160 ? '…' : '');
+}
+
+async function publishScheduled(db: D1Database): Promise<void> {
+  const now = new Date().toISOString();
+  await db.prepare(
+    "UPDATE posts SET published=1, publish_at=NULL WHERE publish_at IS NOT NULL AND publish_at <= ?"
+  ).bind(now).run();
+}
 
 type Env = {
   DB: D1Database;
@@ -73,18 +85,26 @@ app.post('/api/admin/posts', async (c) => {
     content?: string;
     excerpt?: string;
     published?: boolean;
+    publish_at?: string | null;
     category_ids?: number[];
   }>();
   const db = c.env.DB;
   const now = new Date().toISOString();
+  const publishAt = body.publish_at || null;
+  const published = body.publish_at ? 0 : (body.published === true ? 1 : 0);
+  const previewToken = crypto.randomUUID();
+  const content = body.content ?? '';
+  const excerpt = body.excerpt || autoExcerpt(content);
   const result = await db.prepare(
-    "INSERT INTO posts (title, slug, content, excerpt, published, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO posts (title, slug, content, excerpt, published, publish_at, preview_token, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).bind(
     body.title ?? '',
     body.slug ?? '',
-    body.content ?? '',
-    body.excerpt ?? '',
-    body.published === true ? 1 : 0,
+    content,
+    excerpt,
+    published,
+    publishAt,
+    previewToken,
     now,
     now,
   ).run();
@@ -98,7 +118,7 @@ app.post('/api/admin/posts', async (c) => {
 
   await c.env.CACHE.delete('cms:posts:pub');
   await c.env.CACHE.delete('cms:homepage');
-  return c.json({ id: postId });
+  return c.json({ id: postId, preview_token: previewToken });
 });
 
 app.get('/api/admin/posts', async (c) => {
@@ -106,8 +126,8 @@ app.get('/api/admin/posts', async (c) => {
   if (auth instanceof Response) return auth;
 
   const rows = await c.env.DB.prepare(
-    "SELECT id, title, slug, published, updated_at FROM posts ORDER BY updated_at DESC"
-  ).all<{ id: number; title: string; slug: string; published: number; updated_at: string }>();
+    "SELECT id, title, slug, published, publish_at, updated_at FROM posts ORDER BY updated_at DESC"
+  ).all<{ id: number; title: string; slug: string; published: number; publish_at: string | null; updated_at: string }>();
   return c.json(rows.results);
 });
 
@@ -132,18 +152,26 @@ app.patch('/api/admin/posts/:id', async (c) => {
     content?: string;
     excerpt?: string;
     published?: boolean;
+    publish_at?: string | null;
     category_ids?: number[];
   }>();
   const now = new Date().toISOString();
+  const publishAt = body.publish_at || null;
+  const published = body.publish_at ? 0 : (body.published === true ? 1 : 0);
+  const previewToken = crypto.randomUUID();
+  const content = body.content ?? '';
+  const excerpt = body.excerpt || autoExcerpt(content);
 
   await c.env.DB.prepare(
-    "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, updated_at=? WHERE id=?"
+    "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, publish_at=?, preview_token=?, updated_at=? WHERE id=?"
   ).bind(
     body.title ?? '',
     body.slug ?? '',
-    body.content ?? '',
-    body.excerpt ?? '',
-    body.published === true ? 1 : 0,
+    content,
+    excerpt,
+    published,
+    publishAt,
+    previewToken,
     now,
     id,
   ).run();
@@ -157,7 +185,7 @@ app.patch('/api/admin/posts/:id', async (c) => {
 
   await c.env.CACHE.delete('cms:posts:pub');
   await c.env.CACHE.delete('cms:homepage');
-  return c.json({ ok: true });
+  return c.json({ ok: true, preview_token: previewToken });
 });
 
 app.delete('/api/admin/posts/:id', async (c) => {
@@ -168,6 +196,30 @@ app.delete('/api/admin/posts/:id', async (c) => {
   await c.env.CACHE.delete('cms:posts:pub');
   await c.env.CACHE.delete('cms:homepage');
   await c.env.CACHE.delete('cms:config');
+  return c.json({ ok: true });
+});
+
+app.patch('/api/admin/posts/:id/publish', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const now = new Date().toISOString();
+  await c.env.DB.prepare(
+    "UPDATE posts SET published=1, publish_at=NULL, updated_at=? WHERE id=?"
+  ).bind(now, c.req.param('id')).run();
+  await c.env.CACHE.delete('cms:posts:pub');
+  await c.env.CACHE.delete('cms:homepage');
+  return c.json({ ok: true });
+});
+
+app.patch('/api/admin/posts/:id/unpublish', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const now = new Date().toISOString();
+  await c.env.DB.prepare(
+    "UPDATE posts SET published=0, updated_at=? WHERE id=?"
+  ).bind(now, c.req.param('id')).run();
+  await c.env.CACHE.delete('cms:posts:pub');
+  await c.env.CACHE.delete('cms:homepage');
   return c.json({ ok: true });
 });
 
@@ -558,6 +610,8 @@ app.get('/:slug?', async (c) => {
   const db = c.env.DB;
   const slug = c.req.param('slug') ?? '';
 
+  await publishScheduled(db);
+
   const [siteName, navVal, plugins] = await Promise.all([
     getCached(c, 'cms:config', 600, async () => await getSetting(db, 'site_name') ?? 'My Site') as Promise<string>,
     getCached(c, 'cms:nav', 600, async () => await getSetting(db, 'nav') ?? '[]') as Promise<string>,
@@ -572,9 +626,17 @@ app.get('/:slug?', async (c) => {
   initActivePlugins(registry, plugins);
 
   if (slug) {
-    const post = await db.prepare(
-      "SELECT slug, title, content, excerpt, updated_at, type FROM posts WHERE slug = ? AND published = 1"
-    ).bind(slug).first<{ slug: string; title: string; content: string; excerpt: string; updated_at: string; type: string }>();
+    const previewToken = new URL(c.req.url).searchParams.get('preview');
+    let post;
+    if (previewToken) {
+      post = await db.prepare(
+        "SELECT slug, title, content, excerpt, updated_at, type FROM posts WHERE slug = ? AND preview_token = ?"
+      ).bind(slug, previewToken).first<{ slug: string; title: string; content: string; excerpt: string; updated_at: string; type: string }>();
+    } else {
+      post = await db.prepare(
+        "SELECT slug, title, content, excerpt, updated_at, type FROM posts WHERE slug = ? AND published = 1"
+      ).bind(slug).first<{ slug: string; title: string; content: string; excerpt: string; updated_at: string; type: string }>();
+    }
     if (!post) return c.html('<h1>404 — Not found</h1><p><a href="/">Go home</a></p>', 404);
 
     let bodyHtml: string;
