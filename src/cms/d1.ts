@@ -1,15 +1,8 @@
-// src/cms/d1.ts — D1 schema definitions & seeding
-// Called during onboarding install to create all tables + seed defaults
-
 export type Env = {
   DB: D1Database;
   CACHE: KVNamespace;
 };
 
-// Schema split into individual statements and run via db.batch() rather than
-// db.exec(). db.exec() chokes on multi-statement strings in the local D1
-// runtime (and is flaky in prod) with "incomplete input" errors; batch() runs
-// each prepared statement reliably in both local & production D1.
 export const SCHEMA_STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
@@ -21,6 +14,7 @@ export const SCHEMA_STATEMENTS: string[] = [
     slug        TEXT    NOT NULL UNIQUE,
     content     TEXT    NOT NULL,
     excerpt     TEXT,
+    type        TEXT    NOT NULL DEFAULT 'post',
     published   INTEGER DEFAULT 0 NOT NULL,
     created_at  TEXT    DEFAULT (datetime('now')) NOT NULL,
     updated_at  TEXT    DEFAULT (datetime('now')) NOT NULL
@@ -34,12 +28,24 @@ export const SCHEMA_STATEMENTS: string[] = [
     username TEXT    NOT NULL UNIQUE DEFAULT 'admin',
     password_hash TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS categories (
+    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE
+  )`,
+  `CREATE TABLE IF NOT EXISTS post_categories (
+    post_id     INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    PRIMARY KEY (post_id, category_id)
+  )`,
   `CREATE INDEX IF NOT EXISTS idx_posts_slug      ON posts(slug)`,
   `CREATE INDEX IF NOT EXISTS idx_posts_published ON posts(published)`,
+  `CREATE INDEX IF NOT EXISTS idx_posts_type      ON posts(type)`,
 ];
 
 export async function migrate(db: D1Database): Promise<void> {
   await db.batch(SCHEMA_STATEMENTS.map((stmt) => db.prepare(stmt)));
+  try { await db.prepare("ALTER TABLE posts ADD COLUMN type TEXT NOT NULL DEFAULT 'post'").run(); } catch {}
 }
 
 export async function seed(db: D1Database, siteName: string): Promise<void> {

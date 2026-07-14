@@ -47,8 +47,11 @@ return `<!DOCTYPE html>
 <nav>
 <a href="/admin">Dashboard</a>
 <a href="/admin/posts">Posts</a>
+<a href="/admin/pages">Pages</a>
 <a href="/admin/new">New Post</a>
 <a href="/admin/plugins">Plugins</a>
+<a href="/admin/categories">Categories</a>
+<a href="/admin/nav">Navigation</a>
 <a href="/" style="margin-left:1rem">View Site</a>
 <a href="#" onclick="logout(event)" style="margin-left:1rem;color:#f87171">Logout</a>
 </nav>
@@ -57,7 +60,10 @@ return `<!DOCTYPE html>
 <aside class="sidebar">
 <a href="/admin">Dashboard</a>
 <a href="/admin/posts">All Posts</a>
+<a href="/admin/pages">Pages</a>
 <a href="/admin/new">New Post</a>
+<a href="/admin/categories">Categories</a>
+<a href="/admin/nav">Navigation</a>
 <a href="/admin/plugins">Plugins</a>
 </aside>
 <main class="content">${bodyHtml}</main>
@@ -154,6 +160,10 @@ return `<h2 style="margin-bottom:1.5rem">New Post</h2>
 </div>
 <div class="form-group"><label for="excerpt">Excerpt <span style="color:#64748b;font-weight:400">(optional)</span></label><input type="text" id="excerpt" name="excerpt" /></div>
 <div class="form-group"><label for="content">Content <span style="color:#64748b;font-weight:400">(Markdown)</span></label><textarea id="content" name="content" required></textarea></div>
+<div class="form-group">
+<label>Categories</label>
+<div id="catCheckboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem"></div>
+</div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" /> Publish immediately</label></div>
 <div style="display:flex;gap:0.75rem">
 <button type="submit" class="btn btn-primary">Save Post</button>
@@ -167,6 +177,12 @@ var slugEl=document.getElementById('slug');
 titleEl.addEventListener('input',function(){
 slugEl.value=titleEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
 });
+fetch('/api/admin/categories').then(function(r){return r.json()}).then(function(cats){
+var html='';
+for(var i=0;i<cats.length;i++){
+html+='<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer"><input type="checkbox" value="'+cats[i].id+'" class="cat-cb" /> '+cats[i].name+'</label>'}
+document.getElementById('catCheckboxes').innerHTML=html||'<span style="color:#94a3b8;font-size:0.85rem">No categories. <a href="/admin/categories">Manage categories</a>.</span>'});
+function getCatIds(){var ids=[];[].forEach.call(document.querySelectorAll('.cat-cb:checked'),function(cb){ids.push(Number(cb.value))});return ids}
 document.getElementById('form').addEventListener('submit',function(e){
 e.preventDefault();
 var status=document.getElementById('status');
@@ -181,7 +197,8 @@ title:String(fd.get('title')||''),
 slug:String(fd.get('slug')||''),
 content:String(fd.get('content')||''),
 excerpt:String(fd.get('excerpt')||''),
-published:document.getElementById('published').checked
+published:document.getElementById('published').checked,
+category_ids:getCatIds()
 })}).then(function(res){
 if(res.ok){
 res.json().then(function(p){
@@ -212,7 +229,11 @@ return `<h2 style="margin-bottom:1.5rem">Edit Post</h2>
 <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required value="${escAttr(post.slug)}" /></div>
 </div>
 <div class="form-group"><label for="excerpt">Excerpt <span style="color:#64748b;font-weight:400">(optional)</span></label><input type="text" id="excerpt" name="excerpt" value="${escAttr(String(post.excerpt ?? ''))}" /></div>
-<div class="form-group"><label for="content">Content <span style="color:#64748b;font-weight:400">(Markdown)</span></label><textarea id="content" name="content" required>${escHtml(post.content)}</textarea></div>
+ <div class="form-group"><label for="content">Content <span style="color:#64748b;font-weight:400">(Markdown)</span></label><textarea id="content" name="content" required>${escHtml(post.content)}</textarea></div>
+<div class="form-group">
+<label>Categories</label>
+<div id="catCheckboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem"></div>
+</div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" ${checked} /> Published</label></div>
 <div style="font-size:0.8rem;color:#64748b;margin-bottom:1rem">Last updated: ${escAttr(post.updated_at)}</div>
 <div style="display:flex;gap:0.75rem">
@@ -227,6 +248,18 @@ var slugEl=document.getElementById('slug');
 titleEl.addEventListener('input',function(){
 slugEl.value=titleEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
 });
+function getCatIds(){var ids=[];[].forEach.call(document.querySelectorAll('.cat-cb:checked'),function(cb){ids.push(Number(cb.value))});return ids}
+var postCatReq=fetch('/api/admin/posts/${id}/categories').then(function(r){return r.json()});
+var allCatReq=fetch('/api/admin/categories').then(function(r){return r.json()});
+Promise.all([postCatReq,allCatReq]).then(function(results){
+var postCatIds=results[0].map(function(c){return c.id});
+var cats=results[1];
+var html='';
+for(var i=0;i<cats.length;i++){
+var checked=postCatIds.indexOf(cats[i].id)!==-1?' checked':'';
+html+='<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer"><input type="checkbox" value="'+cats[i].id+'" class="cat-cb"'+checked+' /> '+cats[i].name+'</label>'}
+document.getElementById('catCheckboxes').innerHTML=html||'<span style="color:#94a3b8;font-size:0.85rem">No categories.</span>'});
+
 document.getElementById('form').addEventListener('submit',function(e){
 e.preventDefault();
 var status=document.getElementById('status');
@@ -241,7 +274,8 @@ title:String(fd.get('title')||''),
 slug:String(fd.get('slug')||''),
 content:String(fd.get('content')||''),
 excerpt:String(fd.get('excerpt')||''),
-published:document.getElementById('published').checked
+published:document.getElementById('published').checked,
+category_ids:getCatIds()
 })}).then(function(res){
 if(res.ok){status.style.color='#16a34a';status.textContent='Updated!'}
 else{status.style.color='#dc2626';status.textContent='Error updating post'}})});
@@ -388,6 +422,203 @@ export function pluginsBody(
   html += '</script>';
 
   return html;
+}
+
+// ── Pages list ──────────────────────────────────────────────────────
+
+export function pagesBody(): string {
+return `<h2 style="margin-bottom:1rem">Pages</h2>
+<a href="/admin/pages/new" class="btn btn-primary" style="margin-bottom:1rem">+ New Page</a>
+<div style="background:white;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
+<table><thead><tr><th>Title</th><th>Slug</th><th>Status</th><th>Updated</th><th></th></tr></thead>
+<tbody id="pages"><tr><td colspan="5" style="text-align:center;color:#64748b">Loading…</td></tr></tbody>
+</table></div>
+<script>
+fetch('/api/admin/pages').then(function(r){return r.json()}).then(function(pages){
+function ea(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+var tbody=document.getElementById('pages');
+if(!pages.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b">No pages yet.</td></tr>';return}
+tbody.innerHTML=pages.map(function(p){return '<tr>'
++'<td><strong>'+ea(p.title)+'</strong></td>'
++'<td style="color:#64748b">/'+ea(p.slug)+'</td>'
++'<td><span class="badge '+(p.published?'badge-pub':'badge-draft')+'">'+(p.published?'Published':'Draft')+'</span></td>'
++'<td style="color:#64748b;font-size:0.85rem">'+new Date(p.updated_at).toLocaleDateString()+'</td>'
++'<td style="display:flex;gap:0.4rem">'
++'<a class="btn btn-sm" href="/admin/pages/edit/'+p.id+'">Edit</a>'
++'<button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button>'
++'</td></tr>'}).join('')});
+function del(id){if(!confirm('Delete?'))return;fetch('/api/admin/pages/'+id,{method:'DELETE'}).then(function(){location.reload()})}
+</script>`;
+}
+
+// ── New page form ──────────────────────────────────────────────────
+
+export function newPageBody(): string {
+return `<h2 style="margin-bottom:1.5rem">New Page</h2>
+<form id="form" style="max-width:800px">
+<div class="row">
+<div class="form-group"><label for="title">Title</label><input type="text" id="title" name="title" required /></div>
+<div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required placeholder="about" /></div>
+</div>
+<div class="form-group"><label for="content">Content <span style="color:#64748b;font-weight:400">(Markdown)</span></label><textarea id="content" name="content" required></textarea></div>
+<div class="form-group"><label><input type="checkbox" id="published" name="published" checked /> Published</label></div>
+<div style="display:flex;gap:0.75rem">
+<button type="submit" class="btn btn-primary">Save Page</button>
+<a href="/admin/pages" class="btn" style="background:#e5e7eb;color:#1e293b">Cancel</a>
+</div>
+<div id="status" style="margin-top:1rem;font-size:0.9rem"></div>
+</form>
+<script>
+var titleEl=document.getElementById('title');
+var slugEl=document.getElementById('slug');
+titleEl.addEventListener('input',function(){
+slugEl.value=titleEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+});
+document.getElementById('form').addEventListener('submit',function(e){
+e.preventDefault();
+var status=document.getElementById('status');
+status.style.color='#2563eb';
+status.textContent='Saving…';
+var fd=new FormData(e.target);
+fetch('/api/admin/pages',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+title:String(fd.get('title')||''),
+slug:String(fd.get('slug')||''),
+content:String(fd.get('content')||''),
+published:document.getElementById('published').checked
+})}).then(function(res){
+if(res.ok){
+status.style.color='#16a34a';
+status.textContent='Saved!';setTimeout(function(){location.href='/admin/pages'},500)}
+else{status.style.color='#dc2626';status.textContent='Error saving page'}})});
+</script>`;
+}
+
+// ── Edit page form ─────────────────────────────────────────────────
+
+export function editPageBody(page: {
+id: string | number;
+title: string;
+slug: string;
+content: string;
+published: string | number;
+updated_at: string;
+}): string {
+var id = String(page.id);
+var checked = (page.published == 1 || page.published === '1') ? 'checked' : '';
+return `<h2 style="margin-bottom:1.5rem">Edit Page</h2>
+<form id="form" style="max-width:800px">
+<div class="row">
+<div class="form-group"><label for="title">Title</label><input type="text" id="title" name="title" required value="${escAttr(page.title)}" /></div>
+<div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required value="${escAttr(page.slug)}" /></div>
+</div>
+<div class="form-group"><label for="content">Content <span style="color:#64748b;font-weight:400">(Markdown)</span></label><textarea id="content" name="content" required>${escHtml(page.content)}</textarea></div>
+<div class="form-group"><label><input type="checkbox" id="published" name="published" ${checked} /> Published</label></div>
+<div style="font-size:0.8rem;color:#64748b;margin-bottom:1rem">Last updated: ${escAttr(page.updated_at)}</div>
+<div style="display:flex;gap:0.75rem">
+<button type="submit" class="btn btn-primary">Update Page</button>
+<a href="/admin/pages" class="btn" style="background:#e5e7eb;color:#1e293b">Cancel</a>
+</div>
+<div id="status" style="margin-top:1rem;font-size:0.9rem"></div>
+</form>
+<script>
+var titleEl=document.getElementById('title');
+var slugEl=document.getElementById('slug');
+titleEl.addEventListener('input',function(){
+slugEl.value=titleEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+});
+document.getElementById('form').addEventListener('submit',function(e){
+e.preventDefault();
+var status=document.getElementById('status');
+status.style.color='#2563eb';
+status.textContent='Saving…';
+var fd=new FormData(e.target);
+fetch('/api/admin/pages/${id}',{
+method:'PATCH',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+title:String(fd.get('title')||''),
+slug:String(fd.get('slug')||''),
+content:String(fd.get('content')||''),
+published:document.getElementById('published').checked
+})}).then(function(res){
+if(res.ok){status.style.color='#16a34a';status.textContent='Updated!';setTimeout(function(){location.href='/admin/pages'},500)}
+else{status.style.color='#dc2626';status.textContent='Error updating page'}})});
+</script>`;
+}
+
+// ── Categories editor ──────────────────────────────────────────────
+
+export function categoriesBody(): string {
+return `<h2 style="margin-bottom:1.5rem">Categories</h2>
+<form id="catForm" style="display:flex;gap:0.75rem;margin-bottom:2rem;max-width:500px">
+<div style="flex:1"><label for="name">Category name</label><input type="text" id="name" required /></div>
+<div style="flex:1"><label for="slug">Slug</label><input type="text" id="slug" required placeholder="auto" /></div>
+<div style="display:flex;align-items:flex-end"><button type="submit" class="btn btn-primary">Add</button></div>
+</form>
+<div id="status" style="margin-bottom:1rem;font-size:0.9rem"></div>
+<div style="background:white;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
+<table><thead><tr><th>Name</th><th>Slug</th><th></th></tr></thead>
+<tbody id="cats"></tbody>
+</table></div>
+<script>
+var nameEl=document.getElementById('name');
+var slugEl=document.getElementById('slug');
+nameEl.addEventListener('input',function(){
+slugEl.value=nameEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+});
+function load(){fetch('/api/admin/categories').then(function(r){return r.json()}).then(function(cats){
+function ea(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+var tbody=document.getElementById('cats');
+if(!cats.length){tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:#64748b">No categories.</td></tr>';return}
+tbody.innerHTML=cats.map(function(c){return '<tr>'
++'<td><strong>'+ea(c.name)+'</strong></td>'
++'<td style="color:#64748b">'+ea(c.slug)+'</td>'
++'<td><button class="btn btn-sm btn-danger" onclick="del('+c.id+')">Delete</button></td></tr>'}).join('')})}
+document.getElementById('catForm').addEventListener('submit',function(e){
+e.preventDefault();
+var status=document.getElementById('status');
+var slug=slugEl.value||nameEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+fetch('/api/admin/categories',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nameEl.value,slug:slug})}).then(function(res){
+if(res.ok){status.style.color='#16a34a';status.textContent='Added!';nameEl.value='';slugEl.value='';load()}
+else{status.style.color='#dc2626';status.textContent='Error adding category'}})});
+function del(id){if(!confirm('Delete category?'))return;fetch('/api/admin/categories/'+id,{method:'DELETE'}).then(function(){load()})}
+load();
+</script>`;
+}
+
+// ── Navigation editor ──────────────────────────────────────────────
+
+export function navBody(): string {
+return `<h2 style="margin-bottom:1.5rem">Navigation</h2>
+<p style="color:#64748b;margin-bottom:1.5rem;font-size:0.9rem">Links appear in the header of your public site. The <strong>Admin</strong> link is always included automatically.</p>
+<div id="items"></div>
+<div style="margin:1rem 0"><button class="btn btn-sm" onclick="addItem()">+ Add Link</button></div>
+<button class="btn btn-primary" onclick="save()">Save Navigation</button>
+<div id="status" style="margin-top:1rem;font-size:0.9rem"></div>
+<script>
+var items=[];
+function render(){
+var html='<div style="background:white;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">';
+for(var i=0;i<items.length;i++){
+html+='<div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;border-bottom:1px solid #f1f5f9">';
+html+='<input type="text" placeholder="Label" value="'+ea(items[i].label)+'" onchange="items['+i+'].label=this.value" style="flex:1;padding:0.4rem;border:1px solid #cbd5e1;border-radius:3px;font-size:0.9rem" />';
+html+='<input type="text" placeholder="URL" value="'+ea(items[i].url)+'" onchange="items['+i+'].url=this.value" style="flex:1;padding:0.4rem;border:1px solid #cbd5e1;border-radius:3px;font-size:0.9rem" />';
+html+='<button class="btn btn-sm btn-danger" onclick="removeItem('+i+')">✕</button></div>'}
+html+='</div>';
+document.getElementById('items').innerHTML=html||'<p style="color:#94a3b8">No navigation links yet.</p>'}
+function ea(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function addItem(){items.push({label:'',url:''});render()}
+function removeItem(i){items.splice(i,1);render()}
+function save(){
+var status=document.getElementById('status');
+[].forEach.call(document.querySelectorAll('#items input'),function(el,i){if(i%2===0)items[i/2].label=el.value;else items[(i-1)/2].url=el.value});
+fetch('/api/admin/nav',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:items})}).then(function(res){
+if(res.ok){status.style.color='#16a34a';status.textContent='Saved!'}else{status.style.color='#dc2626';status.textContent='Error saving'}})}
+fetch('/api/admin/nav').then(function(r){return r.json()}).then(function(data){items=data;render()});
+</script>`;
 }
 
 // ── Escaping helpers ──────────────────────────────────────────────
