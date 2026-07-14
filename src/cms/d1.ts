@@ -44,8 +44,20 @@ export const SCHEMA_STATEMENTS: string[] = [
 ];
 
 export async function migrate(db: D1Database): Promise<void> {
-  await db.batch(SCHEMA_STATEMENTS.map((stmt) => db.prepare(stmt)));
+  // Create tables (IF NOT EXISTS = safe to re-run)
+  for (const stmt of SCHEMA_STATEMENTS) {
+    // Skip indexes that may reference columns added later
+    if (stmt.startsWith('CREATE INDEX')) continue;
+    await db.prepare(stmt).run();
+  }
+  // Add columns that may not exist on older databases
   try { await db.prepare("ALTER TABLE posts ADD COLUMN type TEXT NOT NULL DEFAULT 'post'").run(); } catch {}
+  // Now create indexes safely (column exists)
+  for (const stmt of SCHEMA_STATEMENTS) {
+    if (stmt.startsWith('CREATE INDEX')) {
+      try { await db.prepare(stmt).run(); } catch {}
+    }
+  }
 }
 
 export async function seed(db: D1Database, siteName: string): Promise<void> {
