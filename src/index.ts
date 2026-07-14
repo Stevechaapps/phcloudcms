@@ -89,6 +89,7 @@ app.post('/api/admin/posts', async (c) => {
   ).run();
 
   await c.env.CACHE.delete('cms:posts:pub');
+  await c.env.CACHE.delete('cms:homepage');
   return c.json({ id: result.meta.last_row_id });
 });
 
@@ -139,6 +140,7 @@ app.patch('/api/admin/posts/:id', async (c) => {
   ).run();
 
   await c.env.CACHE.delete('cms:posts:pub');
+  await c.env.CACHE.delete('cms:homepage');
   return c.json({ ok: true });
 });
 
@@ -148,6 +150,7 @@ app.delete('/api/admin/posts/:id', async (c) => {
 
   await c.env.DB.prepare("DELETE FROM posts WHERE id = ?").bind(c.req.param('id')).run();
   await c.env.CACHE.delete('cms:posts:pub');
+  await c.env.CACHE.delete('cms:homepage');
   await c.env.CACHE.delete('cms:config');
   return c.json({ ok: true });
 });
