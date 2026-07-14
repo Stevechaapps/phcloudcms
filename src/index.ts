@@ -8,7 +8,7 @@ import { AVAILABLE_PLUGINS } from './plugins/index.js';
 import { initSEOPlugin } from './plugins/seo.js';
 import { initSitemapPlugin } from './plugins/sitemap.js';
 import { getCookie, setCookie } from 'hono/cookie';
-import { adminShell, dashboardBody, postsBody, newPostBody, editBody, loginForm, pluginsBody, pagesBody, newPageBody, editPageBody, categoriesBody, navBody } from './admin.js';
+import { adminShell, dashboardBody, postsBody, newPostBody, editBody, loginForm, pluginsBody, pagesBody, newPageBody, editPageBody, categoriesBody, navBody, settingsBody } from './admin.js';
 
 type Post = { title: string; content: string; updated_at: string };
 type DbPost = Post & { id: number; slug: string; excerpt: string; published: number; type: string };
@@ -310,9 +310,34 @@ app.get('/admin/nav', async (c) => {
   return c.html(adminShell('Navigation', navBody()));
 });
 
+app.get('/admin/settings', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const imgurClientId = await getSetting(c.env.DB, 'imgur_client_id') ?? '';
+  return c.html(adminShell('Settings', settingsBody({ imgur_client_id: imgurClientId })));
+});
+
 app.get('/admin/login', (c) => {
   if (getCookie(c, SESSION_COOKIE)) return c.redirect('/admin');
   return c.html(loginForm());
+});
+
+// ── Settings API ──────────────────────────────────────────────────
+
+app.get('/api/admin/settings', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const imgurClientId = await getSetting(c.env.DB, 'imgur_client_id') ?? '';
+  return c.json({ imgur_client_id: imgurClientId });
+});
+
+app.post('/api/admin/settings', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const body = await c.req.json<{ imgur_client_id?: string }>();
+  await c.env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('imgur_client_id', ?)").bind(body.imgur_client_id ?? '').run();
+  await c.env.CACHE.delete('cms:config');
+  return c.json({ ok: true });
 });
 
 // ── Plugin manager API ─────────────────────────────────────────────
