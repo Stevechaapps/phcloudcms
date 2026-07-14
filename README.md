@@ -83,15 +83,11 @@ This connects your fork to Cloudflare so every push deploys automatically.
 3. Click the **Create application** button (blue, top-right area)
 4. Click **Continue with Github**
 
-   If your Cloudflare account has not been linked to GitHub before, a Github authorization popup/redirect appears:
-   - It asks you to **Install & Authorize** Cloudflare Workers
-   - Select whether to allow access to **All repositories** or **Only select repositories** (check your fork)
-   - Click **Install & Authorize**
-   - You return to the Cloudflare dashboard
+   - **If your GitHub account is already linked** — a list of your repositories appears immediately
+   - **If not linked** — a GitHub authorization popup/redirect appears. Click **Install & Authorize**, select repo access (choose your fork or all repos), then click **Install & Authorize**. You return to Cloudflare and the repo list appears.
 
-5. A list of your repositories appears
-6. Find your fork (`<your-username>/phcloudcms`)
-7. Click the row or **Select** button next to it
+5. Find your fork (`<your-username>/phcloudcms`)
+6. Click the row or **Select** button next to it
 
 ### Configure Build Settings
 
