@@ -245,14 +245,17 @@ Your post appears on the homepage immediately.
 
 PHCloud has **no built-in image storage** — images are hosted externally via Imgur (free, no account required for site visitors).
 
+Imgur's upload API is **completely free** — no credit card, no billing, no paid tier. You just register an app to generate a Client ID. The upload never touches your Worker (zero server bandwidth).
+
 ### One-time Setup
 
 1. Go to [api.imgur.com/oauth2/addclient](https://api.imgur.com/oauth2/addclient)
-2. Fill in any name (e.g. "PHCloud CMS")
-3. **Authorization type**: select **OAuth 2 without a callback URL**
-4. Leave the callback/website fields blank
-5. Submit — you get a **Client ID** (a 15-character hex string)
-6. In your admin panel, go to **Settings** → paste the Client ID → **Save Settings**
+2. Enter any name (e.g. "PHCloud CMS")
+3. **Authorization type**: **OAuth 2 without a callback URL**
+4. **Email**: your email address
+5. Leave all other fields blank (no website, no callback URL needed)
+6. Submit — copy the **Client ID** (looks like `a1b2c3d4e5f6g7h`)
+7. In your admin panel, go to **Settings** → paste the Client ID → **Save Settings**
 
 ### Usage
 
