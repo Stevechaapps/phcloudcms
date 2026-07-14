@@ -337,19 +337,6 @@ app.get('/admin/plugins', async (c) => {
   return c.html(adminShell('Plugins', pluginsBody(AVAILABLE_PLUGINS, activeSet)));
 });
 
-// ── Manual migration endpoint ─────────────────────────────────────
-// Temporary — call once after deploying a schema update:
-//   curl https://ph.stevechaapps.workers.dev/api/migrate
-
-app.get('/api/migrate', async (c) => {
-  try {
-    await migrate(c.env.DB);
-    return c.json({ ok: true, message: 'Migration complete' });
-  } catch (err) {
-    return c.json({ ok: false, error: String(err) }, 500);
-  }
-});
-
 // ── Plugin bootstrap ──────────────────────────────────────────────
 
 function initActivePlugins(registry: CMSRegistry, active: Record<string, boolean>): void {
