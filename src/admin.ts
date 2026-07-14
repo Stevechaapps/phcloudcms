@@ -105,79 +105,126 @@ async function logout(e){e.preventDefault();await fetch('/api/auth/logout',{meth
 // ΓöÇΓöÇ Dashboard ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export function dashboardBody(): string {
-return `<h2>Dashboard</h2>
+  return `<h2>Dashboard</h2>
 <div class="stat-grid">
 <div class="stat-card">
-<div class="stat-label">Total Posts</div>
-<div id="total" class="stat-num">ΓÇö</div>
+  <div class="stat-label">Total Posts <span id="filterCount" style="font-weight:400;font-size:0.7rem;color:#64748b"></span></div>
+  <div id="total" class="stat-num">\u2013</div>
 </div>
 <div class="stat-card">
-<div class="stat-label">Published</div>
-<div id="pub" class="stat-num">ΓÇö</div>
+  <div class="stat-label">Published</div>
+  <div id="pub" class="stat-num">\u2013</div>
 </div>
 <div class="stat-card">
-<div class="stat-label">Setup</div>
-<div style="font-size:0.85rem;color:#16a34a;margin-top:0.5rem">Γ£ô Configured</div>
+  <div class="stat-label">Drafts</div>
+  <div id="drafts" class="stat-num">\u2013</div>
+</div>
+<div class="stat-card">
+  <div class="stat-label">Setup</div>
+  <div style="font-size:0.85rem;color:#16a34a;margin-top:0.5rem">\u2713 Configured</div>
 </div>
 </div>
 <div class="page-head">
 <h3 style="margin:0">Recent Posts</h3>
+<div style="display:flex;gap:0.5rem;align-items:center">
+<select id="statusFilter" style="padding:0.35rem 0.5rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.8rem">
+  <option value="all">All</option>
+  <option value="published">Published</option>
+  <option value="draft">Drafts</option>
+  <option value="scheduled">Scheduled</option>
+</select>
 <a href="/admin/new" class="btn btn-primary">+ New Post</a>
+</div>
 </div>
 <div class="card" style="padding:0;overflow:hidden">
 <table><thead><tr><th>Title</th><th>Slug</th><th>Status</th><th>Updated</th><th></th></tr></thead>
-<tbody id="posts"><tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:1.5rem">LoadingΓÇª</td></tr></tbody>
+<tbody id="posts"><tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:1.5rem">Loading\u2026</td></tr></tbody>
 </table></div>
 <script>
-fetch('/api/admin/posts').then(function(r){return r.json()}).then(function(posts){
 function ea(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
-document.getElementById('total').textContent=posts.length;
-document.getElementById('pub').textContent=posts.filter(function(p){return p.published}).length;
-var tbody=document.getElementById('posts');
-if(!posts.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b">No posts yet. <a href="/admin/new">Create one</a>.</td></tr>';return}
-tbody.innerHTML=posts.map(function(p){
-var badge=p.published?'badge-pub':(p.publish_at?'badge-info':'badge-draft');
-var label=p.published?'Published':(p.publish_at?'Scheduled':'Draft');
-return '<tr>'
-+'<td><strong>'+ea(p.title)+'</strong></td>'
-+'<td style="color:#64748b">/'+ea(p.slug)+'</td>'
-+'<td><span class="badge '+badge+'">'+label+'</span></td>'
-+'<td style="color:#64748b;font-size:0.85rem">'+new Date(p.updated_at).toLocaleDateString()+'</td>'
-+'<td style="display:flex;gap:0.4rem">'
-+'<a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a>'
-+'<button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button>'
-+'</td></tr>'}).join('')});
-function del(id){if(!confirm('Delete?'))return;fetch('/api/admin/posts/'+id,{method:'DELETE'}).then(function(){location.reload()})}
+function badge(p){return p.published?'badge-pub':(p.publish_at?'badge-info':'badge-draft')}
+function label(p){return p.published?'Published':(p.publish_at?'Scheduled':'Draft')}
+var allPosts=[];
+fetch('/api/admin/posts').then(function(r){return r.json()}).then(function(posts){
+  allPosts=posts;
+  document.getElementById('total').textContent=posts.length;
+  document.getElementById('pub').textContent=posts.filter(function(p){return p.published}).length;
+  document.getElementById('drafts').textContent=posts.filter(function(p){return !p.published&&!p.publish_at}).length;
+  render(posts);
+});
+function render(posts){
+  var f=document.getElementById('statusFilter').value;
+  var filtered=f==='all'?posts:posts.filter(function(p){if(f==='published')return p.published;if(f==='draft')return !p.published&&!p.publish_at;if(f==='scheduled')return !!p.publish_at&&!p.published;return true});
+  var tbody=document.getElementById('posts');
+  document.getElementById('filterCount').textContent=filtered.length<posts.length?' ('+filtered.length+' shown)':'';
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b;padding:1.25rem">No posts match this filter.</td></tr>';return}
+  tbody.innerHTML=filtered.map(function(p){
+    return '<tr>'
+    +'<td><strong>'+ea(p.title)+'</strong></td>'
+    +'<td style="color:#64748b">/'+ea(p.slug)+'</td>'
+    +'<td><span class="badge '+badge(p)+'">'+label(p)+'</span></td>'
+    +'<td style="color:#64748b;font-size:0.85rem">'+new Date(p.updated_at).toLocaleDateString()+'</td>'
+    +'<td style="display:flex;gap:0.4rem;flex-wrap:wrap">'
+    +'<a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a>'
+    +(p.published
+      ?'<button class="btn btn-sm" onclick="unpublish('+p.id+')" title="Unpublish">\u21A9 Unpublish</button>'
+      :'<button class="btn btn-sm" onclick="publishPost('+p.id+')" title="Publish now">\u2713 Publish</button>')
+    +'<button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button>'
+    +'</td></tr>'}).join('')}
+document.getElementById('statusFilter').addEventListener('change',function(){render(allPosts)});
+function publishPost(id){fetch('/api/admin/posts/'+id+'/publish',{method:'PATCH'}).then(function(r){if(r.ok)location.reload()})}
+function unpublish(id){fetch('/api/admin/posts/'+id+'/unpublish',{method:'PATCH'}).then(function(r){if(r.ok)location.reload()})}
+function del(id){if(!confirm('Permanently delete this post?'))return;fetch('/api/admin/posts/'+id+'/hard',{method:'DELETE'}).then(function(){location.reload()})}
 </script>`;
 }
 
 // ΓöÇΓöÇ Posts list ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export function postsBody(): string {
-return `<h2 style="margin-bottom:1rem">All Posts</h2>
+  return `<h2 style="margin-bottom:1rem">All Posts</h2>
 <a href="/admin/new" class="btn btn-primary" style="margin-bottom:1rem">+ New Post</a>
+<div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem">
+<select id="statusFilter" style="padding:0.35rem 0.5rem;border:1px solid #d1d5db;border-radius:4px;font-size:0.8rem">
+  <option value="all">All</option>
+  <option value="published">Published</option>
+  <option value="draft">Drafts</option>
+  <option value="scheduled">Scheduled</option>
+</select>
+</div>
 <div style="background:white;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
 <table><thead><tr><th>Title</th><th>Slug</th><th>Status</th><th>Updated</th><th></th></tr></thead>
-<tbody id="posts"><tr><td colspan="5" style="text-align:center;color:#64748b">LoadingΓÇª</td></tr></tbody>
+<tbody id="posts"><tr><td colspan="5" style="text-align:center;color:#64748b">Loading\u2026</td></tr></tbody>
 </table></div>
 <script>
-fetch('/api/admin/posts').then(function(r){return r.json()}).then(function(posts){
 function ea(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
-var tbody=document.getElementById('posts');
-if(!posts.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b">No posts yet.</td></tr>';return}
-tbody.innerHTML=posts.map(function(p){
-var badge=p.published?'badge-pub':(p.publish_at?'badge-info':'badge-draft');
-var label=p.published?'Published':(p.publish_at?'Scheduled':'Draft');
-return '<tr>'
-+'<td><strong>'+ea(p.title)+'</strong></td>'
-+'<td style="color:#64748b">/'+ea(p.slug)+'</td>'
-+'<td><span class="badge '+badge+'">'+label+'</span></td>'
-+'<td style="color:#64748b;font-size:0.85rem">'+new Date(p.updated_at).toLocaleDateString()+'</td>'
-+'<td style="display:flex;gap:0.4rem">'
-+'<a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a>'
-+'<button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button>'
-+'</td></tr>'}).join('')});
-function del(id){if(!confirm('Delete?'))return;fetch('/api/admin/posts/'+id,{method:'DELETE'}).then(function(){location.reload()})}
+function badge(p){return p.published?'badge-pub':(p.publish_at?'badge-info':'badge-draft')}
+function label(p){return p.published?'Published':(p.publish_at?'Scheduled':'Draft')}
+var allPosts=[];
+fetch('/api/admin/posts').then(function(r){return r.json()}).then(function(posts){
+  allPosts=posts;render(posts);
+});
+function render(posts){
+  var f=document.getElementById('statusFilter').value;
+  var filtered=f==='all'?posts:posts.filter(function(p){if(f==='published')return p.published;if(f==='draft')return !p.published&&!p.publish_at;if(f==='scheduled')return !!p.publish_at&&!p.published;return true});
+  var tbody=document.getElementById('posts');
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b;padding:1.25rem">No posts match this filter.</td></tr>';return}
+  tbody.innerHTML=filtered.map(function(p){
+    return '<tr>'
+    +'<td><strong>'+ea(p.title)+'</strong></td>'
+    +'<td style="color:#64748b">/'+ea(p.slug)+'</td>'
+    +'<td><span class="badge '+badge(p)+'">'+label(p)+'</span></td>'
+    +'<td style="color:#64748b;font-size:0.85rem">'+new Date(p.updated_at).toLocaleDateString()+'</td>'
+    +'<td style="display:flex;gap:0.4rem;flex-wrap:wrap">'
+    +'<a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a>'
+    +(p.published
+      ?'<button class="btn btn-sm" onclick="unpublish('+p.id+')" title="Unpublish">\u21A9 Unpublish</button>'
+      :'<button class="btn btn-sm" onclick="publishPost('+p.id+')" title="Publish now">\u2713 Publish</button>')
+    +'<button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button>'
+    +'</td></tr>'}).join('')}
+document.getElementById('statusFilter').addEventListener('change',function(){render(allPosts)});
+function publishPost(id){fetch('/api/admin/posts/'+id+'/publish',{method:'PATCH'}).then(function(r){if(r.ok)location.reload()})}
+function unpublish(id){fetch('/api/admin/posts/'+id+'/unpublish',{method:'PATCH'}).then(function(r){if(r.ok)location.reload()})}
+function del(id){if(!confirm('Permanently delete this post?'))return;fetch('/api/admin/posts/'+id+'/hard',{method:'DELETE'}).then(function(){location.reload()})}
 </script>`;
 }
 

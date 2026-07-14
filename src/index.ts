@@ -190,6 +190,41 @@ app.delete('/api/admin/posts/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+app.patch('/api/admin/posts/:id/publish', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const now = new Date().toISOString();
+  const previewToken = crypto.randomUUID();
+  await c.env.DB.prepare(
+    "UPDATE posts SET published=1, publish_at=NULL, preview_token=?, updated_at=? WHERE id=?"
+  ).bind(previewToken, now, c.req.param('id')).run();
+  await c.env.CACHE.delete('cms:posts:pub');
+  await c.env.CACHE.delete('cms:homepage');
+  return c.json({ ok: true });
+});
+
+app.patch('/api/admin/posts/:id/unpublish', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const now = new Date().toISOString();
+  await c.env.DB.prepare(
+    "UPDATE posts SET published=0, updated_at=? WHERE id=?"
+  ).bind(now, c.req.param('id')).run();
+  await c.env.CACHE.delete('cms:posts:pub');
+  await c.env.CACHE.delete('cms:homepage');
+  return c.json({ ok: true });
+});
+
+app.delete('/api/admin/posts/:id/hard', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  await c.env.DB.prepare("DELETE FROM posts WHERE id = ?").bind(c.req.param('id')).run();
+  await c.env.CACHE.delete('cms:posts:pub');
+  await c.env.CACHE.delete('cms:homepage');
+  await c.env.CACHE.delete('cms:config');
+  return c.json({ ok: true });
+});
+
 // ── Install wizard ────────────────────────────────────────────────
 
 app.post('/api/install', async (c) => {
