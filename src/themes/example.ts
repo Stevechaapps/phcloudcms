@@ -42,7 +42,7 @@ function myShell(siteName: string, headMarkup: string, bodyHtml: string, nav: { 
   <!-- Custom header / layout -->
   <header>
     <a href="/">${siteName}</a>
-    <nav>${navHtml}<a href="/admin">Admin</a></nav>
+    <nav>${navHtml}</nav>
   </header>
   <main>${bodyHtml}</main>
   <footer>My custom footer</footer>

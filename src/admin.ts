@@ -715,7 +715,7 @@ load();
 
 export function navBody(): string {
 return `<h2>Navigation</h2>
-<p style="color:#64748b;margin-bottom:1.5rem;font-size:0.875rem">Links appear in the header of your public site. The <strong>Admin</strong> link is always included automatically.</p>
+<p style="color:#64748b;margin-bottom:1.5rem;font-size:0.875rem">Links appear in the header of your public site. The admin panel is at <code>/admin</code>.</p>
 <div id="items"></div>
 <div style="margin:1rem 0"><button class="btn btn-sm" onclick="addItem()">+ Add Link</button></div>
 <button class="btn btn-primary" onclick="save()">Save Navigation</button>
