@@ -84,13 +84,15 @@ app.post('/api/admin/posts', async (c) => {
   const publishAt = body.publish_at || null;
   const published = body.publish_at ? 0 : (body.published === true ? 1 : 0);
   const previewToken = crypto.randomUUID();
+  const content = body.content ?? '';
+  const excerpt = body.excerpt || autoExcerpt(content);
   const result = await db.prepare(
     "INSERT INTO posts (title, slug, content, excerpt, published, publish_at, preview_token, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).bind(
     body.title ?? '',
     body.slug ?? '',
-    body.content ?? '',
-    body.excerpt ?? '',
+    content,
+    excerpt,
     published,
     publishAt,
     previewToken,
@@ -148,14 +150,16 @@ app.patch('/api/admin/posts/:id', async (c) => {
   const publishAt = body.publish_at || null;
   const published = body.publish_at ? 0 : (body.published === true ? 1 : 0);
   const previewToken = crypto.randomUUID();
+  const content = body.content ?? '';
+  const excerpt = body.excerpt || autoExcerpt(content);
 
   await c.env.DB.prepare(
     "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, publish_at=?, preview_token=?, updated_at=? WHERE id=?"
   ).bind(
     body.title ?? '',
     body.slug ?? '',
-    body.content ?? '',
-    body.excerpt ?? '',
+    content,
+    excerpt,
     published,
     publishAt,
     previewToken,
@@ -674,6 +678,15 @@ export default app;
 function shellFull(siteName: string, headMarkup: string, bodyHtml: string, nav: NavItem[], themeCss: string): string {
   const navHtml = nav.map((n) => '<a href="' + esc(n.url) + '">' + esc(n.label) + '</a>').join('');
   return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><style>' + themeCss + '</style>' + headMarkup + '</head><body><header><div class="inner"><a href="/" class="site-name">' + esc(siteName) + '</a><nav>' + navHtml + '</nav></div></header><main>' + bodyHtml + '</main><footer><a href="/sitemap.xml">Sitemap</a> · <a href="/feed.xml">RSS</a> · <a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">GitHub</a><br/><span style="opacity:0.6">Powered by <a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">PHCloud CMS</a> on <a href="https://www.cloudflare.com/workers/" target="_blank" rel="noopener">Cloudflare Workers</a></span></footer></body></html>';
+}
+
+function autoExcerpt(content: string): string {
+  const plain = content.replace(/^#{1,6}\s+/gm,'').replace(/\*\*?|`|!|\[|\]\(.*?\)/g,'').replace(/^>\s+/gm,'').replace(/^-{3,}/gm,'').replace(/^\s*[-*+]\s/gm,'').trim();
+  const max = 160;
+  if (plain.length <= max) return plain;
+  const cut = plain.substring(0, max).split(' ');
+  cut.pop();
+  return cut.join(' ') + '…';
 }
 
 function renderPost(post: { title: string; content: string; updated_at: string }): string {
