@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler pages dev functions --d1 DB --kv CACHE",
+    "dev": "wrangler dev --d1 DB --kv CACHE",
     "build": "tsc --noEmit",
     "lint": "prettier --check src/",
     "lint:fix": "prettier --write src/"

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PHCloud CMS** — The world's lightest CMS, running entirely on Cloudflare free tier via Cloudflare Pages.
+**PHCloud CMS** — The world's lightest CMS, running entirely on Cloudflare free tier via Cloudflare Workers.
 
 - Hono v4.12 framework (NOT Astro)
 - TypeScript 7.0 with full type safety
@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies
 npm install
 
-# Run locally (dev server on http://localhost:8788)
+# Run locally (dev server on http://localhost:8787)
 npm run dev
 
 # TypeScript check
@@ -34,8 +34,6 @@ npx tsc --noEmit
 
 ```
 phcloud/
-├── functions/
-│   └── [[path]].ts           # Cloudflare Pages catch-all handler (entry point)
 ├── src/
 │   ├── cms/
 │   │   ├── registry.ts       # Plugin hook system (CMSRegistry class)
@@ -56,16 +54,14 @@ phcloud/
 ## One-Click Deploy for Users
 
 1. **Fork** this repo to your GitHub
-2. Go to **Cloudflare Dashboard → Pages → Create a project → Connect to Git**
-3. Select your fork, accept default build settings (no build command needed)
-4. In **Settings → Functions** add these bindings:
+2. Go to **Cloudflare Dashboard → Workers & Pages → Create application → Import a repository**
+3. Select your fork, leave build settings default (blank build command)
+4. In **Settings → Bindings** add:
    - **D1 database**: Variable name `DB` → select or create a D1 database
    - **KV namespace**: Variable name `CACHE` → select or create a KV namespace
-5. Deploy
-6. Visit your Pages URL → the install wizard appears → fill in site name + admin credentials
+5. Redeploy (Retry deployment or push a commit)
+6. Visit your Worker URL → the install wizard appears → fill in site name + admin credentials
 7. Done — auto-login to `/admin`
-
-That's it. No CLI, no config files, no wrangler.
 
 ---
 
@@ -161,8 +157,8 @@ CREATE TABLE admins (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NUL
 npm run dev
 
 # Test API
-curl http://localhost:8788
-curl http://localhost:8788/sitemap.xml
+curl http://localhost:8787
+curl http://localhost:8787/sitemap.xml
 ```
 
 ---
