@@ -5,7 +5,7 @@ import { onboardingGuard, getCached } from "./cms/middleware.js";
 import { migrate, seed, isConfigured, getSetting, getAllSettings } from "./cms/d1.js";
 import { hashPassword, verifyPassword } from "./cms/auth.js";
 import { renderMarkdown } from "./cms/markdown.js";
-import { saveImage, getImage } from "./cms/images.js";
+import { saveImage, getImage, deleteImage } from "./cms/images.js";
 import { AVAILABLE_PLUGINS } from "./plugins/index.js";
 import { getCookie, setCookie } from "hono/cookie";
 import { css as themeCss } from "./themes/default.js";
@@ -23,6 +23,7 @@ import {
   tagsBody,
   navBody,
   settingsBody,
+  imagesBody,
 } from "./admin.js";
 
 type Post = { title: string; content: string; updated_at: string };
@@ -552,6 +553,12 @@ app.get("/admin/settings", async (c) => {
   return c.html(adminShell("Settings", settingsBody()));
 });
 
+app.get("/admin/images", async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  return c.html(adminShell("Image Library", imagesBody()));
+});
+
 app.get("/admin/login", (c) => {
   if (getCookie(c, SESSION_COOKIE)) return c.redirect("/admin");
   return c.html(loginForm());
@@ -637,6 +644,32 @@ app.post("/api/admin/images", async (c) => {
     mime,
   );
   return c.json({ url: "/img/" + id });
+});
+
+app.get("/api/admin/images", async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const rows = await c.env.DB.prepare(
+    "SELECT id, filename, mime, size, created_at FROM images ORDER BY created_at DESC",
+  ).all<{
+    id: number;
+    filename: string;
+    mime: string;
+    size: number;
+    created_at: string;
+  }>();
+  return c.json(rows.results);
+});
+
+app.delete("/api/admin/images/:id", async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const id = parseInt(c.req.param("id"), 10);
+  if (isNaN(id)) return c.body(null, 400);
+  await deleteImage(c.env.DB, id);
+  await c.env.CACHE.delete(`img:${id}:data`);
+  await c.env.CACHE.delete(`img:${id}:meta`);
+  return c.body(null, 204);
 });
 
 // ── Plugin manager page ────────────────────────────────────────────
