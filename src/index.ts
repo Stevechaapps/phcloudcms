@@ -404,6 +404,27 @@ app.patch('/api/admin/plugins/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Image upload proxy ──────────────────────────────────────────────
+
+app.post('/api/upload', async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const apiKey = await getSetting(c.env.DB, 'imgbb_api_key');
+  if (!apiKey) return c.json({ error: 'ImgBB API key not configured' }, 400);
+  const formData = await c.req.raw.formData();
+  const file = formData.get('image') as File | null;
+  if (!file) return c.json({ error: 'No image file provided' }, 400);
+  const imgbbForm = new FormData();
+  imgbbForm.append('image', file, file.name || 'image.png');
+  const res = await fetch('https://api.imgbb.com/1/upload?key=' + encodeURIComponent(apiKey), {
+    method: 'POST',
+    body: imgbbForm
+  });
+  const data = await res.json() as { success?: boolean; data?: { url?: string }; error?: { message?: string } };
+  if (data.success && data.data?.url) return c.json({ url: data.data.url });
+  return c.json({ error: data.error?.message || 'ImgBB upload failed' }, 500);
+});
+
 // ── Plugin manager page ────────────────────────────────────────────
 
 app.get('/admin/plugins', async (c) => {

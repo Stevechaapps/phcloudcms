@@ -249,35 +249,31 @@ setTimeout(function(){location.href='/admin/edit/'+p.id},500)})}
  else{status.style.color='#dc2626';status.textContent='Error saving post'}})});
 </script>
 <script>
-var imgbbApiKey='';
-fetch('/api/admin/settings').then(function(r){return r.json()}).then(function(s){imgbbApiKey=s.imgbb_api_key});
 var contentTa=document.getElementById('content');
 contentTa.addEventListener('paste',function(e){
-if(!imgbbApiKey)return;
 var files=e.clipboardData.files;
 if(!files.length)return;
 e.preventDefault();
 var ta=this;
 var status=document.getElementById('status');
 status.style.color='#2563eb';
-status.textContent='Uploading image to ImgBB…';
+status.textContent='Uploading image…';
 var fd=new FormData();
 fd.append('image',files[0]);
-fetch('https://api.imgbb.com/1/upload?key='+imgbbApiKey,{
+fetch('/api/upload',{
 method:'POST',
 body:fd}).then(function(r){return r.json()}).then(function(res){
-if(res.success){
-var url=res.data.url;
-var markdown='![]('+url+')';
+if(res.url){
+var markdown='![]('+res.url+')';
 var start=ta.selectionStart,end=ta.selectionEnd;
 var val=ta.value;
 ta.value=val.substring(0,start)+markdown+val.substring(end);
 ta.selectionStart=ta.selectionEnd=start+markdown.length;
 ta.focus();
 status.style.color='#16a34a';
-status.textContent='Image uploaded: '+url}
-else{status.style.color='#dc2626';status.textContent='ImgBB upload failed'}})
-.catch(function(){status.style.color='#dc2626';status.textContent='ImgBB upload error'})});
+status.textContent='Image uploaded: '+res.url}
+else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}})
+.catch(function(){status.style.color='#dc2626';status.textContent='Upload error'})});
 </script>`;
 }
 
@@ -391,35 +387,31 @@ if(res.ok){status.style.color='#16a34a';status.textContent='Updated!'}
 else{status.style.color='#dc2626';status.textContent='Error updating post'}})});
 </script>
 <script>
-var imgbbApiKey='';
-fetch('/api/admin/settings').then(function(r){return r.json()}).then(function(s){imgbbApiKey=s.imgbb_api_key});
 var contentTa=document.getElementById('content');
 contentTa.addEventListener('paste',function(e){
-if(!imgbbApiKey)return;
 var files=e.clipboardData.files;
 if(!files.length)return;
 e.preventDefault();
 var ta=this;
 var status=document.getElementById('status');
 status.style.color='#2563eb';
-status.textContent='Uploading image to ImgBB…';
+status.textContent='Uploading image…';
 var fd=new FormData();
 fd.append('image',files[0]);
-fetch('https://api.imgbb.com/1/upload?key='+imgbbApiKey,{
+fetch('/api/upload',{
 method:'POST',
 body:fd}).then(function(r){return r.json()}).then(function(res){
-if(res.success){
-var url=res.data.url;
-var markdown='![]('+url+')';
+if(res.url){
+var markdown='![]('+res.url+')';
 var start=ta.selectionStart,end=ta.selectionEnd;
 var val=ta.value;
 ta.value=val.substring(0,start)+markdown+val.substring(end);
 ta.selectionStart=ta.selectionEnd=start+markdown.length;
 ta.focus();
 status.style.color='#16a34a';
-status.textContent='Image uploaded: '+url}
-else{status.style.color='#dc2626';status.textContent='ImgBB upload failed'}})
-.catch(function(){status.style.color='#dc2626';status.textContent='ImgBB upload error'})});
+status.textContent='Image uploaded: '+res.url}
+else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}})
+.catch(function(){status.style.color='#dc2626';status.textContent='Upload error'})});
 </script>`;
 }
 
