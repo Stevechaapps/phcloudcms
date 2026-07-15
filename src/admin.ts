@@ -182,24 +182,25 @@ export function newPostBody(): string {
 <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required /></div>
 </div>
 <div class="form-group"><label for="excerpt">Excerpt <span style="color:#64748b;font-weight:400">(optional)</span></label><input type="text" id="excerpt" name="excerpt" /></div>
-<div class="form-group"><label for="content">Content <span style="color:#64748b;font-weight:400">(Markdown)</span></label>
-<div class="toolbar">
-<button type="button" onclick="mdWrap(event,'**','bold')" title="Bold"><strong>B</strong></button>
-<button type="button" onclick="mdWrap(event,'*','italic')" title="Italic"><em>I</em></button>
-<span class="sep"></span>
-<button type="button" onclick="mdLine(event,'## ')" title="Heading 2">H2</button>
-<button type="button" onclick="mdLine(event,'### ')" title="Heading 3">H3</button>
-<span class="sep"></span>
-<button type="button" onclick="mdLink(event)" title="Link">Link</button>
-<button type="button" onclick="mdImage(event)" title="Image">Img</button>
-<span class="sep"></span>
-<button type="button" onclick="mdLine(event,'> ')" title="Blockquote">Quote</button>
-<button type="button" onclick="mdLine(event,'- ')" title="List item">List</button>
-<span class="sep"></span>
-<button type="button" onclick="togglePreview(event)" title="Preview">Preview</button>
-</div>
-<textarea id="content" name="content" required></textarea>
-<div class="preview-box" id="preview"></div>
+<div class="form-group">
+  <label>Content <span style="color:#6474b;font-weight:400">(Markdown)</span> <button type="button" onclick="togglePreview(event)" class="btn btn-sm" style="float:right" title="Toggle preview">Preview</button></label>
+  <div class="toolbar">
+    <button type="button" onclick="mdWrap(event,'**','bold')" title="Bold"><strong>B</strong></button>
+    <button type="button" onclick="mdWrap(event,'*','italic')" title="Italic"><em>I</em></button>
+    <span class="sep"></span>
+    <button type="button" onclick="mdLine(event,'## ')" title="Heading 2">H2</button>
+    <button type="button" onclick="mdLine(event,'### ')" title="Heading 3">H3</button>
+    <span class="sep"></span>
+    <button type="button" onclick="mdLink(event)" title="Link">Link</button>
+    <button type="button" onclick="mdImage(event)" title="Image">Img</button>
+    <span class="sep"></span>
+    <button type="button" onclick="mdLine(event,'> ')" title="Blockquote">Quote</button>
+    <button type="button" onclick="mdLine(event,'- ')" title="List item">List</button>
+  </div>
+  <div id="editor-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;min-height:320px">
+    <textarea id="content" name="content" required style="min-height:300px;resize:vertical"></textarea>
+    <div class="preview-box" id="preview" style="display:none;min-height:300px"></div>
+  </div>
 </div>
 <div class="form-group">
 <label>Tags</label>
@@ -222,7 +223,7 @@ function mdWrap(e,c,ph){e.preventDefault();var ta=document.getElementById('conte
 function mdLine(e,p){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart;var ls=ta.value.lastIndexOf(String.fromCharCode(10),s-1)+1;ta.value=ta.value.substring(0,ls)+p+ta.value.substring(ls);ta.selectionStart=ta.selectionEnd=s+p.length;ta.focus()}
 function mdLink(e){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart,en=ta.selectionEnd,val=ta.value,sel=val.substring(s,en)||'link text';ta.value=val.substring(0,s)+'['+sel+'](url)'+val.substring(en);ta.selectionStart=s+sel.length+2;ta.selectionEnd=s+sel.length+2+3;ta.focus()}
 function mdImage(e){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart,en=ta.selectionEnd,val=ta.value,sel=val.substring(s,en)||'alt';ta.value=val.substring(0,s)+'!['+sel+'](url)'+val.substring(en);ta.selectionStart=s+sel.length+3;ta.selectionEnd=s+sel.length+3+3;ta.focus()}
-function togglePreview(e){e.preventDefault();var ta=document.getElementById('content'),pre=document.getElementById('preview');if(pre.style.display=='block'){pre.style.display='none';ta.style.display='block';return}ta.style.display='none';pre.style.display='block';pre.textContent='Loading…';fetch('/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:ta.value})}).then(function(r){return r.json()}).then(function(data){pre.innerHTML=data.html}).catch(function(){pre.textContent='Preview failed'})}
+function togglePreview(e){if(e){e.preventDefault()}var ta=document.getElementById('content'),pre=document.getElementById('preview');if(pre.style.display==='block'){pre.style.display='none';ta.style.display='block';return}ta.style.display='none';pre.style.display='block';if(pre.textContent===''||pre.textContent==='…')renderPreview(ta.value,pre)}function renderPreview(content,pre){pre.textContent='…';fetch('/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:content})}).then(function(r){return r.json()}).then(function(data){pre.innerHTML=data.html}).catch(function(){pre.textContent='Preview failed'})}
 </script>
 <script>
 var titleEl=document.getElementById('title');
@@ -308,6 +309,35 @@ else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}
 r2.readAsDataURL(blob)},'image/webp',0.7)};
 img.src=ev.target.result};
 reader.readAsDataURL(file)});
+</script><script>
+(function(){
+var ta=document.getElementById('content'),pre=document.getElementById('preview'),wrap=document.getElementById('editor-wrap'),debounce=null;
+ta.addEventListener('input',function(){clearTimeout(debounce);debounce=setTimeout(function(){if(pre.style.display==='block')renderPreview(ta.value,pre)},400)});
+wrap.addEventListener('dragover',function(e){e.preventDefault();wrap.style.outline='2px dashed #3b82f6';wrap.style.outlineOffset='-2px'},false);
+wrap.addEventListener('dragleave',function(){wrap.style.outline='';wrap.style.outlineOffset=''},false);
+wrap.addEventListener('drop',function(e){e.preventDefault();wrap.style.outline='';wrap.style.outlineOffset='';var files=e.dataTransfer.files;if(!files.length)return;var file=files[0];if(!file.type.startsWith('image/'))return;uploadImageToMarkdown(file,ta)},false);
+function uploadImageToMarkdown(file,ta){
+var status=document.getElementById('status');status.style.color='#2563eb';status.textContent='Processing image…';
+var reader=new FileReader();
+reader.onload=function(ev){
+var img=new Image();img.onload=function(){
+var MAX_W=1200,w=img.width,h=img.height;if(w>MAX_W){h=Math.round(h*MAX_W/w);w=MAX_W}
+var c=document.createElement("canvas");c.width=w;c.height=h;var ctx=c.getContext("2d");ctx.drawImage(img,0,0,w,h);
+c.toBlob(function(blob){var r2=new FileReader();r2.onload=function(ev2){var dataUrl=ev2.target.result;status.textContent="Uploading…";
+fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:dataUrl,filename:file.name||'drop.webp'})})
+.then(function(r){return r.json()}).then(function(res){
+if(res.url){var markdown="![]("+res.url+")";
+var start=ta.selectionStart,end=ta.selectionEnd,val=ta.value;
+ta.value=val.substring(0,start)+markdown+val.substring(end);
+ta.selectionStart=ta.selectionEnd=start+markdown.length;ta.focus();
+if(pre.style.display==="block")renderPreview(ta.value,pre);
+status.style.color='#16a34a';status.textContent='Image uploaded'}
+else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}
+}).catch(function(){status.style.color="#dc2626";status.textContent="Upload error"})};
+r2.readAsDataURL(blob)},"image/webp",0.7)};
+img.src=ev.target.result};reader.readAsDataURL(file)};
+};
+})();
 </script>`;
 }
 
@@ -338,24 +368,25 @@ export function editBody(post: {
 <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required value="${escAttr(post.slug)}" /></div>
 </div>
 <div class="form-group"><label for="excerpt">Excerpt <span style="color:#64748b;font-weight:400">(optional)</span></label><input type="text" id="excerpt" name="excerpt" value="${escAttr(String(post.excerpt ?? ""))}" /></div>
- <div class="form-group"><label for="content">Content <span style="color:#64748b;font-weight:400">(Markdown)</span></label>
-<div class="toolbar">
-<button type="button" onclick="mdWrap(event,'**','bold')" title="Bold"><strong>B</strong></button>
-<button type="button" onclick="mdWrap(event,'*','italic')" title="Italic"><em>I</em></button>
-<span class="sep"></span>
-<button type="button" onclick="mdLine(event,'## ')" title="Heading 2">H2</button>
-<button type="button" onclick="mdLine(event,'### ')" title="Heading 3">H3</button>
-<span class="sep"></span>
-<button type="button" onclick="mdLink(event)" title="Link">Link</button>
-<button type="button" onclick="mdImage(event)" title="Image">Img</button>
-<span class="sep"></span>
-<button type="button" onclick="mdLine(event,'> ')" title="Blockquote">Quote</button>
-<button type="button" onclick="mdLine(event,'- ')" title="List item">List</button>
-<span class="sep"></span>
-<button type="button" onclick="togglePreview(event)" title="Preview">Preview</button>
-</div>
-<textarea id="content" name="content" required>${escHtml(post.content)}</textarea>
-<div class="preview-box" id="preview"></div>
+ <div class="form-group">
+  <label>Content <span style="color:#64748b;font-weight:400">(Markdown)</span> <button type="button" onclick="togglePreview(event)" class="btn btn-sm" style="float:right" title="Toggle preview">Preview</button></label>
+  <div class="toolbar">
+    <button type="button" onclick="mdWrap(event,'**','bold')" title="Bold"><strong>B</strong></button>
+    <button type="button" onclick="mdWrap(event,'*','italic')" title="Italic"><em>I</em></button>
+    <span class="sep"></span>
+    <button type="button" onclick="mdLine(event,'## ')" title="Heading 2">H2</button>
+    <button type="button" onclick="mdLine(event,'### ')" title="Heading 3">H3</button>
+    <span class="sep"></span>
+    <button type="button" onclick="mdLink(event)" title="Link">Link</button>
+    <button type="button" onclick="mdImage(event)" title="Image">Img</button>
+    <span class="sep"></span>
+    <button type="button" onclick="mdLine(event,'> ')" title="Blockquote">Quote</button>
+    <button type="button" onclick="mdLine(event,'- ')" title="List item">List</button>
+  </div>
+  <div id="editor-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;min-height:320px">
+    <textarea id="content" name="content" required style="min-height:300px;resize:vertical">${escHtml(post.content)}</textarea>
+    <div class="preview-box" id="preview" style="display:none;min-height:300px"></div>
+  </div>
 </div>
 <div class="form-group">
 <label>Tags</label>
@@ -380,7 +411,7 @@ function mdWrap(e,c,ph){e.preventDefault();var ta=document.getElementById('conte
 function mdLine(e,p){e.preventDefault();var ta=document.getElementById('content');var ls=ta.value.lastIndexOf(String.fromCharCode(10),ta.selectionStart-1)+1;ta.value=ta.value.substring(0,ls)+p+ta.value.substring(ls);ta.selectionStart=ta.selectionEnd=ta.selectionStart+p.length;ta.focus()}
 function mdLink(e){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart,en=ta.selectionEnd,val=ta.value,sel=val.substring(s,en)||'link text';ta.value=val.substring(0,s)+'['+sel+'](url)'+val.substring(en);ta.selectionStart=s+sel.length+2;ta.selectionEnd=s+sel.length+2+3;ta.focus()}
 function mdImage(e){e.preventDefault();var ta=document.getElementById('content'),s=ta.selectionStart,en=ta.selectionEnd,val=ta.value,sel=val.substring(s,en)||'alt';ta.value=val.substring(0,s)+'!['+sel+'](url)'+val.substring(en);ta.selectionStart=s+sel.length+3;ta.selectionEnd=s+sel.length+3+3;ta.focus()}
-function togglePreview(e){e.preventDefault();var ta=document.getElementById('content'),pre=document.getElementById('preview');if(pre.style.display=='block'){pre.style.display='none';ta.style.display='block';return}ta.style.display='none';pre.style.display='block';pre.textContent='Loading…';fetch('/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:ta.value})}).then(function(r){return r.json()}).then(function(data){pre.innerHTML=data.html}).catch(function(){pre.textContent='Preview failed'})}
+function togglePreview(e){if(e){e.preventDefault()}var ta=document.getElementById('content'),pre=document.getElementById('preview');if(pre.style.display==='block'){pre.style.display='none';ta.style.display='block';return}ta.style.display='none';pre.style.display='block';if(pre.textContent===''||pre.textContent==='…')renderPreview(ta.value,pre)}function renderPreview(content,pre){pre.textContent='…';fetch('/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:content})}).then(function(r){return r.json()}).then(function(data){pre.innerHTML=data.html}).catch(function(){pre.textContent='Preview failed'})}
 </script>
 <script>
 var titleEl=document.getElementById('title');
@@ -468,6 +499,35 @@ else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}
 r2.readAsDataURL(blob)},'image/webp',0.7)};
 img.src=ev.target.result};
 reader.readAsDataURL(file)});
+</script><script>
+(function(){
+var ta=document.getElementById('content'),pre=document.getElementById('preview'),wrap=document.getElementById('editor-wrap'),debounce=null;
+ta.addEventListener('input',function(){clearTimeout(debounce);debounce=setTimeout(function(){if(pre.style.display==='block')renderPreview(ta.value,pre)},400)});
+wrap.addEventListener('dragover',function(e){e.preventDefault();wrap.style.outline='2px dashed #3b82f6';wrap.style.outlineOffset='-2px'},false);
+wrap.addEventListener('dragleave',function(){wrap.style.outline='';wrap.style.outlineOffset=''},false);
+wrap.addEventListener('drop',function(e){e.preventDefault();wrap.style.outline='';wrap.style.outlineOffset='';var files=e.dataTransfer.files;if(!files.length)return;var file=files[0];if(!file.type.startsWith('image/'))return;uploadImageToMarkdown(file,ta)},false);
+function uploadImageToMarkdown(file,ta){
+var status=document.getElementById('status');status.style.color='#2563eb';status.textContent='Processing image…';
+var reader=new FileReader();
+reader.onload=function(ev){
+var img=new Image();img.onload=function(){
+var MAX_W=1200,w=img.width,h=img.height;if(w>MAX_W){h=Math.round(h*MAX_W/w);w=MAX_W}
+var c=document.createElement("canvas");c.width=w;c.height=h;var ctx=c.getContext("2d");ctx.drawImage(img,0,0,w,h);
+c.toBlob(function(blob){var r2=new FileReader();r2.onload=function(ev2){var dataUrl=ev2.target.result;status.textContent="Uploading…";
+fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:dataUrl,filename:file.name||'drop.webp'})})
+.then(function(r){return r.json()}).then(function(res){
+if(res.url){var markdown="![]("+res.url+")";
+var start=ta.selectionStart,end=ta.selectionEnd,val=ta.value;
+ta.value=val.substring(0,start)+markdown+val.substring(end);
+ta.selectionStart=ta.selectionEnd=start+markdown.length;ta.focus();
+if(pre.style.display==="block")renderPreview(ta.value,pre);
+status.style.color='#16a34a';status.textContent='Image uploaded'}
+else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}
+}).catch(function(){status.style.color="#dc2626";status.textContent="Upload error"})};
+r2.readAsDataURL(blob)},"image/webp",0.7)};
+img.src=ev.target.result};reader.readAsDataURL(file)};
+};
+})();
 </script>`;
 }
 
