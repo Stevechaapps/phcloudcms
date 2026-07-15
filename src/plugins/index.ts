@@ -2,6 +2,7 @@
 import type { CMSRegistry } from '../cms/registry.js';
 import { initSEOPlugin } from './seo.js';
 import { initSitemapPlugin } from './sitemap.js';
+import { initTagCloudPlugin } from './tag-cloud.js';
 
 export type PluginEntry = {
   id: string;
@@ -34,5 +35,15 @@ export const AVAILABLE_PLUGINS: PluginEntry[] = [
     author: 'PHCloud CMS',
     hooks: ['render:sitemap'],
     init: initSitemapPlugin,
+  },
+  {
+    id: 'tag-cloud',
+    name: 'Tag Cloud',
+    description: 'Displays a weighted tag cloud on public pages.',
+    category: 'content',
+    version: '1.0.0',
+    author: 'PHCloud CMS',
+    hooks: ['render:body'],
+    init: initTagCloudPlugin,
   },
 ];

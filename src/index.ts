@@ -564,8 +564,8 @@ app.patch("/api/admin/plugins/:id", async (c) => {
   if (auth instanceof Response) return auth;
   const id = c.req.param("id");
   const { active } = await c.req.json<{ active?: boolean }>();
-  await c.env.DB.prepare("UPDATE plugins SET active = ? WHERE id = ?")
-    .bind(active === true ? 1 : 0, id)
+  await c.env.DB.prepare("INSERT OR REPLACE INTO plugins (id, active) VALUES (?, ?)")
+    .bind(id, active === true ? 1 : 0)
     .run();
   await c.env.CACHE.delete("cms:plugins");
   return c.json({ ok: true });
@@ -1140,6 +1140,7 @@ app.get("/:slug?", async (c) => {
       bodyHtml,
       post,
       siteName,
+      DB: db,
     });
     bodyHtml = (bodyPayload.bodyHtml as string) ?? bodyHtml;
     return c.html(
@@ -1195,6 +1196,7 @@ app.get("/:slug?", async (c) => {
   const bodyPayload = await registry.executePipeline("render:body", {
     bodyHtml,
     siteName,
+    DB: db,
   });
   bodyHtml = (bodyPayload.bodyHtml as string) ?? bodyHtml;
   return c.html(
