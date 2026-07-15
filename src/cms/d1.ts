@@ -23,6 +23,14 @@ export const SCHEMA_STATEMENTS: string[] = [
     id     TEXT PRIMARY KEY,
     active INTEGER DEFAULT 0 NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS images (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename   TEXT NOT NULL,
+    mime       TEXT NOT NULL,
+    data       BLOB NOT NULL,
+    size       INTEGER NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')) NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS admins (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT    NOT NULL UNIQUE DEFAULT 'admin',

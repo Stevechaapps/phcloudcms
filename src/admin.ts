@@ -252,16 +252,34 @@ var contentTa=document.getElementById('content');
 contentTa.addEventListener('paste',function(e){
 var files=e.clipboardData.files;
 if(!files.length)return;
+var file=files[0];
+if(!file.type.startsWith('image/'))return;
 e.preventDefault();
 var ta=this;
 var status=document.getElementById('status');
 status.style.color='#2563eb';
-status.textContent='Uploading image…';
-var fd=new FormData();
-fd.append('image',files[0]);
-fetch('/api/upload',{
+status.textContent='Processing image…';
+var reader=new FileReader();
+reader.onload=function(ev){
+var img=new Image();
+img.onload=function(){
+var MAX_W=1200;
+var w=img.width,h=img.height;
+if(w>MAX_W){h=Math.round(h*MAX_W/w);w=MAX_W}
+var c=document.createElement('canvas');
+c.width=w;c.height=h;
+var ctx=c.getContext('2d');
+ctx.drawImage(img,0,0,w,h);
+c.toBlob(function(blob){
+var r2=new FileReader();
+r2.onload=function(ev2){
+var dataUrl=ev2.target.result;
+status.textContent='Uploading…';
+fetch('/api/admin/images',{
 method:'POST',
-body:fd}).then(function(r){return r.json()}).then(function(res){
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({data:dataUrl,filename:file.name||'paste.webp'})
+}).then(function(r){return r.json()}).then(function(res){
 if(res.url){
 var markdown='![]('+res.url+')';
 var start=ta.selectionStart,end=ta.selectionEnd;
@@ -270,9 +288,12 @@ ta.value=val.substring(0,start)+markdown+val.substring(end);
 ta.selectionStart=ta.selectionEnd=start+markdown.length;
 ta.focus();
 status.style.color='#16a34a';
-status.textContent='Image uploaded: '+res.url}
+status.textContent='Image uploaded'}
 else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}})
-.catch(function(){status.style.color='#dc2626';status.textContent='Upload error'})});
+.catch(function(){status.style.color='#dc2626';status.textContent='Upload error'})};
+r2.readAsDataURL(blob)},'image/webp',0.7)};
+img.src=ev.target.result};
+reader.readAsDataURL(file)});
 </script>`;
 }
 
@@ -391,16 +412,34 @@ var contentTa=document.getElementById('content');
 contentTa.addEventListener('paste',function(e){
 var files=e.clipboardData.files;
 if(!files.length)return;
+var file=files[0];
+if(!file.type.startsWith('image/'))return;
 e.preventDefault();
 var ta=this;
 var status=document.getElementById('status');
 status.style.color='#2563eb';
-status.textContent='Uploading image…';
-var fd=new FormData();
-fd.append('image',files[0]);
-fetch('/api/upload',{
+status.textContent='Processing image…';
+var reader=new FileReader();
+reader.onload=function(ev){
+var img=new Image();
+img.onload=function(){
+var MAX_W=1200;
+var w=img.width,h=img.height;
+if(w>MAX_W){h=Math.round(h*MAX_W/w);w=MAX_W}
+var c=document.createElement('canvas');
+c.width=w;c.height=h;
+var ctx=c.getContext('2d');
+ctx.drawImage(img,0,0,w,h);
+c.toBlob(function(blob){
+var r2=new FileReader();
+r2.onload=function(ev2){
+var dataUrl=ev2.target.result;
+status.textContent='Uploading…';
+fetch('/api/admin/images',{
 method:'POST',
-body:fd}).then(function(r){return r.json()}).then(function(res){
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({data:dataUrl,filename:file.name||'paste.webp'})
+}).then(function(r){return r.json()}).then(function(res){
 if(res.url){
 var markdown='![]('+res.url+')';
 var start=ta.selectionStart,end=ta.selectionEnd;
@@ -409,9 +448,12 @@ ta.value=val.substring(0,start)+markdown+val.substring(end);
 ta.selectionStart=ta.selectionEnd=start+markdown.length;
 ta.focus();
 status.style.color='#16a34a';
-status.textContent='Image uploaded: '+res.url}
+status.textContent='Image uploaded'}
 else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}})
-.catch(function(){status.style.color='#dc2626';status.textContent='Upload error'})});
+.catch(function(){status.style.color='#dc2626';status.textContent='Upload error'})};
+r2.readAsDataURL(blob)},'image/webp',0.7)};
+img.src=ev.target.result};
+reader.readAsDataURL(file)});
 </script>`;
 }
 

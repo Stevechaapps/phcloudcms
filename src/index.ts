@@ -5,6 +5,7 @@ import { onboardingGuard, getCached } from "./cms/middleware.js";
 import { migrate, seed, isConfigured, getSetting } from "./cms/d1.js";
 import { hashPassword, verifyPassword } from "./cms/auth.js";
 import { renderMarkdown } from "./cms/markdown.js";
+import { saveImage, getImage } from "./cms/images.js";
 import { AVAILABLE_PLUGINS } from "./plugins/index.js";
 import { initSEOPlugin } from "./plugins/seo.js";
 import { initSitemapPlugin } from "./plugins/sitemap.js";
@@ -560,49 +561,30 @@ app.patch("/api/admin/plugins/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-// ── Image upload proxy ──────────────────────────────────────────────
+// ── Image API ───────────────────────────────────────────────────────
 
-app.post("/api/upload", async (c) => {
+app.post("/api/admin/images", async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
-  const formData = await c.req.raw.formData();
-  const file = formData.get("image") as File | null;
-  if (!file) return c.json({ error: "No image file provided" }, 400);
-  const buf = await file.arrayBuffer();
-  const clientId = "dcd01ec7c5a4cca";
-  const boundary = "----Boundary" + Math.random().toString(36).slice(2);
-  const enc = (s: string) => new TextEncoder().encode(s);
-  const header = enc(
-    "--" +
-      boundary +
-      '\r\nContent-Disposition: form-data; name="image"\r\n\r\n',
+  const { data, filename } = await c.req.json<{
+    data?: string;
+    filename?: string;
+  }>();
+  if (!data) return c.json({ error: "No image data" }, 400);
+  const match = data.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!match) return c.json({ error: "Invalid image data" }, 400);
+  const mime = match[1];
+  const base64 = match[2];
+  const binaryStr = atob(base64);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+  const id = await saveImage(
+    c.env.DB,
+    filename || "paste." + mime.split("/")[1],
+    bytes,
+    mime,
   );
-  const footer = enc("\r\n--" + boundary + "--\r\n");
-  const body = new Uint8Array(
-    header.byteLength + buf.byteLength + footer.byteLength,
-  );
-  body.set(header, 0);
-  body.set(new Uint8Array(buf), header.byteLength);
-  body.set(footer, header.byteLength + buf.byteLength);
-  const res = await fetch("https://api.imgur.com/3/image", {
-    method: "POST",
-    headers: {
-      "Content-Type": "multipart/form-data; boundary=" + boundary,
-      Authorization: "Client-ID " + clientId,
-    },
-    body,
-  });
-  const data = (await res.json()) as Record<string, unknown>;
-  if (
-    (data as Record<string, unknown>).success &&
-    (data as Record<string, unknown>).data
-  ) {
-    const link = (
-      (data as Record<string, unknown>).data as Record<string, unknown>
-    ).link as string | undefined;
-    if (link) return c.json({ url: link });
-  }
-  return c.json({ error: JSON.stringify(data) }, 500);
+  return c.json({ url: "/img/" + id });
 });
 
 // ── Plugin manager page ────────────────────────────────────────────
@@ -943,6 +925,33 @@ app.delete("/api/admin/pages/:id", async (c) => {
     .run();
   await c.env.CACHE.delete("cms:homepage");
   return c.json({ ok: true });
+});
+
+// ── Image serving ──────────────────────────────────────────────────
+
+app.get("/img/:id", async (c) => {
+  const id = parseInt(c.req.param("id"), 10);
+  if (isNaN(id)) return c.body(null, 404);
+  const [cachedData, cachedMime] = await Promise.all([
+    c.env.CACHE.get(`img:${id}:data`, "arrayBuffer"),
+    c.env.CACHE.get(`img:${id}:meta`),
+  ]);
+  if (cachedData && cachedMime) {
+    return c.body(cachedData, 200, {
+      "Content-Type": cachedMime,
+      "Cache-Control": "public, max-age=31536000, immutable",
+    });
+  }
+  const img = await getImage(c.env.DB, id);
+  if (!img) return c.body(null, 404);
+  await Promise.all([
+    c.env.CACHE.put(`img:${id}:data`, img.data, { expirationTtl: 2592000 }),
+    c.env.CACHE.put(`img:${id}:meta`, img.mime, { expirationTtl: 2592000 }),
+  ]);
+  return c.body(img.data, 200, {
+    "Content-Type": img.mime,
+    "Cache-Control": "public, max-age=31536000, immutable",
+  });
 });
 
 // ── Public pages (catch-all — must be after all specific routes) ──
