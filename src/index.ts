@@ -195,17 +195,28 @@ app.get("/api/admin/posts", async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
 
+  const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10));
+  const limit = 20;
+  const offset = (page - 1) * limit;
+  const countRow = await c.env.DB.prepare(
+    "SELECT COUNT(*) as total FROM posts",
+  ).first<{ total: number }>();
+  const total = countRow?.total ?? 0;
+  const totalPages = Math.ceil(total / limit);
+
   const rows = await c.env.DB.prepare(
-    "SELECT id, title, slug, published, publish_at, updated_at FROM posts ORDER BY updated_at DESC",
-  ).all<{
-    id: number;
-    title: string;
-    slug: string;
-    published: number;
-    publish_at: string | null;
-    updated_at: string;
-  }>();
-  return c.json(rows.results);
+    "SELECT id, title, slug, published, publish_at, updated_at FROM posts ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+  )
+    .bind(limit, offset)
+    .all<{
+      id: number;
+      title: string;
+      slug: string;
+      published: number;
+      publish_at: string | null;
+      updated_at: string;
+    }>();
+  return c.json({ results: rows.results, total, page, totalPages });
 });
 
 app.get("/api/admin/posts/:id", async (c) => {
@@ -704,11 +715,21 @@ app.get("/search", async (c) => {
     '" placeholder="Search posts…" style="width:100%;padding:0.65rem;border:1px solid #cbd5e1;border-radius:4px;font-size:1rem"/></form>';
 
   if (q) {
-    const rows = await db
+    const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10));
+    const countRow = await db
       .prepare(
-        "SELECT slug, title, excerpt, updated_at FROM posts WHERE published = 1 AND type = 'post' AND (title LIKE ? OR content LIKE ?) ORDER BY updated_at DESC",
+        "SELECT COUNT(*) as total FROM posts WHERE published = 1 AND type = 'post' AND (title LIKE ? OR content LIKE ?)",
       )
       .bind("%" + q + "%", "%" + q + "%")
+      .first<{ total: number }>();
+    const totalPosts = countRow?.total ?? 0;
+    const totalPages = Math.ceil(totalPosts / 10);
+
+    const rows = await db
+      .prepare(
+        "SELECT slug, title, excerpt, updated_at FROM posts WHERE published = 1 AND type = 'post' AND (title LIKE ? OR content LIKE ?) ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+      )
+      .bind("%" + q + "%", "%" + q + "%", 10, (page - 1) * 10)
       .all<{
         slug: string;
         title: string;
@@ -717,6 +738,7 @@ app.get("/search", async (c) => {
       }>();
     if (rows.results.length) {
       bodyHtml += renderPostList(rows.results, "");
+      bodyHtml += renderPagination(page, totalPages, "/search", { q });
     } else {
       bodyHtml +=
         '<p style="color:#64748b">No results found for "' + esc(q) + '"</p>';
@@ -755,11 +777,24 @@ app.get("/tag/:slug", async (c) => {
       404,
     );
 
-  const rows = await db
+  const page = Math.max(
+    1,
+    parseInt(c.req.query("page") ?? "1", 10),
+  );
+  const countRow = await db
     .prepare(
-      "SELECT p.slug, p.title, p.excerpt, p.updated_at FROM posts p JOIN post_tags pt ON p.id = pt.post_id WHERE pt.tag_id = ? AND p.published = 1 ORDER BY p.updated_at DESC",
+      "SELECT COUNT(*) as total FROM posts p JOIN post_tags pt ON p.id = pt.post_id WHERE pt.tag_id = ? AND p.published = 1",
     )
     .bind(tag.id)
+    .first<{ total: number }>();
+  const totalPosts = countRow?.total ?? 0;
+  const totalPages = Math.ceil(totalPosts / 10);
+
+  const rows = await db
+    .prepare(
+      "SELECT p.slug, p.title, p.excerpt, p.updated_at FROM posts p JOIN post_tags pt ON p.id = pt.post_id WHERE pt.tag_id = ? AND p.published = 1 ORDER BY p.updated_at DESC LIMIT ? OFFSET ?",
+    )
+    .bind(tag.id, 10, (page - 1) * 10)
     .all<{
       slug: string;
       title: string;
@@ -776,7 +811,8 @@ app.get("/tag/:slug", async (c) => {
     "</h1>" +
     (rows.results.length
       ? renderPostList(rows.results, "")
-      : '<p style="color:#64748b">No posts with this tag.</p>');
+      : '<p style="color:#64748b">No posts with this tag.</p>') +
+    renderPagination(page, totalPages, "/tag/" + esc(tagSlug), {});
   const registry = new CMSRegistry();
   const headPayload = await registry.executePipeline("render:head", {
     siteName,
@@ -1111,19 +1147,28 @@ app.get("/:slug?", async (c) => {
     );
   }
 
-  const rows = await getCached(c, "cms:homepage", 60, async () => {
-    const r = await db
-      .prepare(
-        "SELECT slug, title, excerpt, updated_at FROM posts WHERE published = 1 AND type = 'post' ORDER BY updated_at DESC",
-      )
-      .all<{
-        slug: string;
-        title: string;
-        excerpt: string;
-        updated_at: string;
-      }>();
-    return r.results;
-  });
+  const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10));
+  const countRow = await db
+    .prepare(
+      "SELECT COUNT(*) as total FROM posts WHERE published = 1 AND type = 'post'",
+    )
+    .first<{ total: number }>();
+  const totalPosts = countRow?.total ?? 0;
+  const totalPages = Math.ceil(totalPosts / 10);
+  const limit = 10;
+  const offset = (page - 1) * limit;
+
+  const rows = await db
+    .prepare(
+      "SELECT slug, title, excerpt, updated_at FROM posts WHERE published = 1 AND type = 'post' ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+    )
+    .bind(limit, offset)
+    .all<{
+      slug: string;
+      title: string;
+      excerpt: string;
+      updated_at: string;
+    }>();
 
   const origin = new URL(c.req.url).origin;
   const meta = {
@@ -1143,9 +1188,10 @@ app.get("/:slug?", async (c) => {
     markup: rssLink,
     meta,
   });
-  let bodyHtml = rows.length
-    ? renderPostList(rows, siteName)
+  let bodyHtml = rows.results.length
+    ? renderPostList(rows.results, siteName)
     : renderHomepage(siteName);
+  bodyHtml += renderPagination(page, totalPages, "/", {});
   const bodyPayload = await registry.executePipeline("render:body", {
     bodyHtml,
     siteName,
@@ -1256,6 +1302,54 @@ function renderPostList(
     html += "</article>";
   }
   html += "</div>";
+  return html;
+}
+
+function renderPagination(
+  page: number,
+  totalPages: number,
+  basePath: string,
+  additionalParams: Record<string, string>,
+): string {
+  if (totalPages <= 1) return "";
+  const buildUrl = (p: number): string => {
+    const params = new URLSearchParams(additionalParams);
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return basePath + (qs ? "?" + qs : "");
+  };
+  let html =
+    '<nav style="display:flex;justify-content:center;gap:0.5rem;margin-top:2rem;align-items:center">';
+  if (page > 1)
+    html +=
+      '<a href="' +
+      esc(buildUrl(page - 1)) +
+      '" style="padding:0.4rem 0.8rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6">← Prev</a>';
+  const startPage = Math.max(1, page - 2);
+  const endPage = Math.min(totalPages, page + 2);
+  if (startPage > 1) html += '<span style="color:#94a3b8">…</span>';
+  for (let i = startPage; i <= endPage; i++) {
+    if (i === page) {
+      html +=
+        '<span style="padding:0.4rem 0.8rem;background:#0f172a;color:white;border-radius:4px;font-weight:600">' +
+        i +
+        "</span>";
+    } else {
+      html +=
+        '<a href="' +
+        esc(buildUrl(i)) +
+        '" style="padding:0.4rem 0.8rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6">' +
+        i +
+        "</a>";
+    }
+  }
+  if (endPage < totalPages) html += '<span style="color:#94a3b8">…</span>';
+  if (page < totalPages)
+    html +=
+      '<a href="' +
+      esc(buildUrl(page + 1)) +
+      '" style="padding:0.4rem 0.8rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6">Next →</a>';
+  html += "</nav>";
   return html;
 }
 

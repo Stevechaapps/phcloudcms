@@ -110,14 +110,20 @@ export function dashboardBody(): string {
 <table><thead><tr><th>Title</th><th>Slug</th><th>Status</th><th>Updated</th><th></th></tr></thead>
 <tbody id="posts"><tr><td colspan="5" style="text-align:center;color:#64748b">Loading…</td></tr></tbody>
 </table></div>
+<div id="pagination" style="display:flex;justify-content:center;gap:0.5rem;margin-top:1rem;align-items:center"></div>
 <script>
-fetch('/api/admin/posts').then(function(r){return r.json()}).then(function(posts){
+function renderAdminPage(page,totalPages){var nav=document.getElementById('pagination');if(totalPages<=1){nav.innerHTML='';return}
+var h='';if(page>1)h+='<a href="?page='+(page-1)+'" style="padding:0.3rem 0.6rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6;font-size:0.85rem">← Prev</a>';
+for(var i=1;i<=totalPages;i++){if(i===page)h+='<span style="padding:0.3rem 0.6rem;background:#0f172a;color:white;border-radius:4px;font-weight:600;font-size:0.85rem">'+i+'</span>';else h+='<a href="?page='+i+'" style="padding:0.3rem 0.6rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6;font-size:0.85rem">'+i+'</a>'}
+if(page<totalPages)h+='<a href="?page='+(page+1)+'" style="padding:0.3rem 0.6rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6;font-size:0.85rem">Next →</a>';nav.innerHTML=h}
+function loadPosts(){var page=parseInt(location.search.match(/[?&]page=(\d+)/)||[,'1'],10);
+fetch('/api/admin/posts?page='+page).then(function(r){return r.json()}).then(function(data){
 function ea(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
-document.getElementById('total').textContent=posts.length;
-document.getElementById('pub').textContent=posts.filter(function(p){return p.published}).length;
+document.getElementById('total').textContent=data.total;
+document.getElementById('pub').textContent=data.results.filter(function(p){return p.published}).length;
 var tbody=document.getElementById('posts');
-if(!posts.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b">No posts yet. <a href="/admin/new">Create one</a>.</td></tr>';return}
-tbody.innerHTML=posts.map(function(p){
+if(!data.results.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b">No posts yet. <a href="/admin/new">Create one</a>.</td></tr>';return}
+tbody.innerHTML=data.results.map(function(p){
 return '<tr>'
 +'<td><strong>'+ea(p.title)+'</strong></td>'
 +'<td style="color:#64748b">/'+ea(p.slug)+'</td>'
@@ -126,9 +132,9 @@ return '<tr>'
 +'<td style="display:flex;gap:0.4rem">'
 +'<a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a>'
 +'<button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button>'
-+'</td></tr>'}).join('')});
++'</td></tr>'}).join('')});renderAdminPage(data.page,data.totalPages)}
 function del(id){if(!confirm('Delete?'))return;fetch('/api/admin/posts/'+id,{method:'DELETE'}).then(function(){location.reload()})}
-</script>`;
+loadPosts();</script>`;
 }
 
 // ── Posts list ─────────────────────────────────────────────────────
@@ -140,12 +146,18 @@ export function postsBody(): string {
 <table><thead><tr><th>Title</th><th>Slug</th><th>Status</th><th>Updated</th><th></th></tr></thead>
 <tbody id="posts"><tr><td colspan="5" style="text-align:center;color:#64748b">Loading…</td></tr></tbody>
 </table></div>
+<div id="pagination" style="display:flex;justify-content:center;gap:0.5rem;margin-top:1rem;align-items:center"></div>
 <script>
-fetch('/api/admin/posts').then(function(r){return r.json()}).then(function(posts){
+function renderAdminPage(page,totalPages){var nav=document.getElementById('pagination');if(totalPages<=1){nav.innerHTML='';return}
+var h='';if(page>1)h+='<a href="?page='+(page-1)+'" style="padding:0.3rem 0.6rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6;font-size:0.85rem">← Prev</a>';
+for(var i=1;i<=totalPages;i++){if(i===page)h+='<span style="padding:0.3rem 0.6rem;background:#0f172a;color:white;border-radius:4px;font-weight:600;font-size:0.85rem">'+i+'</span>';else h+='<a href="?page='+i+'" style="padding:0.3rem 0.6rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6;font-size:0.85rem">'+i+'</a>'}
+if(page<totalPages)h+='<a href="?page='+(page+1)+'" style="padding:0.3rem 0.6rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6;font-size:0.85rem">Next →</a>';nav.innerHTML=h}
+function loadPosts(){var page=parseInt(location.search.match(/[?&]page=(\d+)/)||[,'1'],10);
+fetch('/api/admin/posts?page='+page).then(function(r){return r.json()}).then(function(data){
 function ea(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 var tbody=document.getElementById('posts');
-if(!posts.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b">No posts yet.</td></tr>';return}
-tbody.innerHTML=posts.map(function(p){return '<tr>'
+if(!data.results.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b">No posts yet.</td></tr>';return}
+tbody.innerHTML=data.results.map(function(p){return '<tr>'
 +'<td><strong>'+ea(p.title)+'</strong></td>'
 +'<td style="color:#64748b">/'+ea(p.slug)+'</td>'
 +'<td><span class="badge '+(p.published?'badge-pub':'badge-draft')+'">'+(p.published?'Published':'Draft')+'</span></td>'
@@ -153,9 +165,9 @@ tbody.innerHTML=posts.map(function(p){return '<tr>'
 +'<td style="display:flex;gap:0.4rem">'
 +'<a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a>'
 +'<button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button>'
-+'</td></tr>'}).join('')});
++'</td></tr>'}).join('')});renderAdminPage(data.page,data.totalPages)}
 function del(id){if(!confirm('Delete?'))return;fetch('/api/admin/posts/'+id,{method:'DELETE'}).then(function(){location.reload()})}
-</script>`;
+loadPosts();</script>`;
 }
 
 // ── New post form ──────────────────────────────────────────────────
