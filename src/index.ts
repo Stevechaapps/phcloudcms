@@ -409,7 +409,7 @@ app.patch('/api/admin/plugins/:id', async (c) => {
 app.post('/api/upload', async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
-  const apiKey = await getSetting(c.env.DB, 'imgbb_api_key');
+  const apiKey = await getSetting(c.env.DB, 'imgbb_api_key') || (c.env as Record<string, unknown>).IMGBB_API_KEY as string | undefined;
   if (!apiKey) return c.json({ error: 'ImgBB API key not configured' }, 400);
   const formData = await c.req.raw.formData();
   const file = formData.get('image') as File | null;
@@ -740,7 +740,7 @@ function markdownToHtml(md: string): string {
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  html = html.replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:1rem 0" />');
+  html = html.replace(/!\[(.*?)\]\((.+?)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:1rem 0" />');
   html = html.replace(/\[(.+?)\]\((.+?)\)/g, (_, text, url) => {
     const safeUrl = url.replace(/^javascript:/i, '').replace(/^data:/i, '');
     return '<a href="' + safeUrl + '" rel="noopener">' + text + '</a>';
