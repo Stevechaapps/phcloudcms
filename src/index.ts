@@ -326,7 +326,7 @@ app.get('/admin/edit/:id', async (c) => {
   const id = c.req.param('id');
   const post = await c.env.DB.prepare("SELECT * FROM posts WHERE id = ?").bind(id).first<DbPost>();
   if (!post) return c.notFound();
-  return c.html(adminShell('Edit Post', editBody({ id: post.id, title: post.title, slug: post.slug, content: post.content, excerpt: post.excerpt, published: post.published, updated_at: post.updated_at })));
+  return c.html(adminShell('Edit Post', editBody({ id: post.id, title: post.title, slug: post.slug, content: post.content, excerpt: post.excerpt, published: post.published, publish_at: post.publish_at, preview_token: post.preview_token, updated_at: post.updated_at })));
 });
 
 app.get('/admin/pages', async (c) => {
@@ -719,6 +719,7 @@ function markdownToHtml(md: string): string {
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:1rem 0" />');
   html = html.replace(/\[(.+?)\]\((.+?)\)/g, (_, text, url) => {
     const safeUrl = url.replace(/^javascript:/i, '').replace(/^data:/i, '');
     return '<a href="' + safeUrl + '" rel="noopener">' + text + '</a>';
