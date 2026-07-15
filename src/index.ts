@@ -411,16 +411,26 @@ app.post('/api/upload', async (c) => {
   if (auth instanceof Response) return auth;
   const apiKey = await getSetting(c.env.DB, 'imgbb_api_key') || (c.env as Record<string, unknown>).IMGBB_API_KEY as string | undefined;
   if (!apiKey) return c.json({ error: 'ImgBB API key not configured' }, 400);
-  const ctype = c.req.header('Content-Type') || '';
-  const body = await c.req.raw.arrayBuffer();
-  const res = await fetch('https://api.imgbb.com/1/upload?key=' + encodeURIComponent(apiKey), {
+  const formData = await c.req.raw.formData();
+  const file = formData.get('image') as File | null;
+  if (!file) return c.json({ error: 'No image file provided' }, 400);
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
+  }
+  const params = new URLSearchParams();
+  params.set('key', apiKey);
+  params.set('image', btoa(binary));
+  const res = await fetch('https://api.imgbb.com/1/upload', {
     method: 'POST',
-    headers: { 'Content-Type': ctype },
-    body
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params
   });
   const data = await res.json() as { success?: boolean; data?: { url?: string }; error?: { message?: string } };
   if (data.success && data.data?.url) return c.json({ url: data.data.url });
-  return c.json({ error: data.error?.message || 'ImgBB upload failed' }, 500);
+  return c.json({ error: 'ImgBB upload failed' }, 500);
 });
 
 // ── Plugin manager page ────────────────────────────────────────────
