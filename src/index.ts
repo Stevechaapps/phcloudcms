@@ -415,14 +415,11 @@ app.post('/api/upload', async (c) => {
   const file = formData.get('image') as File | null;
   if (!file) return c.json({ error: 'No image file provided' }, 400);
   const buf = await file.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-  const params = new URLSearchParams();
-  params.set('key', apiKey);
-  params.set('image', base64);
-  const res = await fetch('https://api.imgbb.com/1/upload', {
+  const imgbbForm = new FormData();
+  imgbbForm.append('image', new Blob([buf], { type: file.type || 'image/png' }), file.name || 'image.png');
+  const res = await fetch('https://api.imgbb.com/1/upload?key=' + encodeURIComponent(apiKey), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params
+    body: imgbbForm
   });
   const data = await res.json() as { success?: boolean; data?: { url?: string }; error?: { message?: string } };
   if (data.success && data.data?.url) return c.json({ url: data.data.url });
