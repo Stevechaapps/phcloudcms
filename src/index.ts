@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { CMSRegistry } from "./cms/registry.js";
 import { onboardingGuard, getCached } from "./cms/middleware.js";
-import { migrate, seed, isConfigured, getSetting } from "./cms/d1.js";
+import { migrate, seed, isConfigured, getSetting, getAllSettings } from "./cms/d1.js";
 import { hashPassword, verifyPassword } from "./cms/auth.js";
 import { renderMarkdown } from "./cms/markdown.js";
 import { saveImage, getImage } from "./cms/images.js";
@@ -561,6 +561,48 @@ app.patch("/api/admin/plugins/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Admin: Settings API ────────────────────────────────────────────
+
+app.get("/api/admin/settings", async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const settings = await getAllSettings(c.env.DB);
+  return c.json({
+    site_name: settings.site_name ?? "",
+    seo_description: settings.seo_description ?? "",
+    site_logo: settings.site_logo ?? null,
+  });
+});
+
+app.patch("/api/admin/settings", async (c) => {
+  const auth = await requireAuth(c);
+  if (auth instanceof Response) return auth;
+  const body = await c.req.json<{
+    site_name?: string;
+    seo_description?: string;
+    site_logo?: string | null;
+  }>();
+  const db = c.env.DB;
+  if (body.site_name !== undefined)
+    await db
+      .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('site_name', ?)")
+      .bind(body.site_name)
+      .run();
+  if (body.seo_description !== undefined)
+    await db
+      .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('seo_description', ?)")
+      .bind(body.seo_description)
+      .run();
+  if (body.site_logo !== undefined)
+    await db
+      .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('site_logo', ?)")
+      .bind(body.site_logo ?? "")
+      .run();
+  await c.env.CACHE.delete("cms:config");
+  await c.env.CACHE.delete("cms:settings");
+  return c.json({ ok: true });
+});
+
 // ── Image API ───────────────────────────────────────────────────────
 
 app.post("/api/admin/images", async (c) => {
@@ -621,9 +663,8 @@ app.get("/health", (c) => c.json({ ok: true }));
 
 app.get("/feed.xml", async (c) => {
   const db = c.env.DB;
-  const siteName = await getCached(c, "cms:config", 600, async () => {
-    return (await getSetting(db, "site_name")) ?? "My Site";
-  });
+  const settings = await getCached(c, "cms:settings", 600, async () => await getAllSettings(db)) as Record<string, string>;
+  const siteName = settings.site_name ?? "My Site";
   const posts = await db
     .prepare(
       "SELECT title, slug, excerpt, updated_at FROM posts WHERE published = 1 AND type = 'post' ORDER BY updated_at DESC LIMIT 50",
@@ -656,9 +697,9 @@ app.get("/feed.xml", async (c) => {
 app.get("/search", async (c) => {
   const q = c.req.query("q") ?? "";
   const db = c.env.DB;
-  const siteName = await getCached(c, "cms:config", 600, async () => {
-    return (await getSetting(db, "site_name")) ?? "My Site";
-  });
+  const settings = await getCached(c, "cms:settings", 600, async () => await getAllSettings(db)) as Record<string, string>;
+  const siteName = settings.site_name ?? "My Site";
+  const seoDescription = settings.seo_description ?? "";
 
   let bodyHtml = "<h1>Search</h1>";
   bodyHtml +=
@@ -690,11 +731,11 @@ app.get("/search", async (c) => {
   const headPayload = await registry.executePipeline("render:head", {
     siteName,
     title: "Search · " + siteName,
-    description: "",
+    description: seoDescription,
     markup: "",
     meta: {
       title: "Search · " + siteName,
-      description: "",
+      description: seoDescription,
       url: new URL(c.req.url).href,
     },
   });
@@ -963,29 +1004,18 @@ app.get("/:slug?", async (c) => {
 
   await publishScheduled(db);
 
-  const [siteName, navVal, plugins] = await Promise.all([
-    getCached(
-      c,
-      "cms:config",
-      600,
-      async () => (await getSetting(db, "site_name")) ?? "My Site",
-    ) as Promise<string>,
-    getCached(
-      c,
-      "cms:nav",
-      600,
-      async () => (await getSetting(db, "nav")) ?? "[]",
-    ) as Promise<string>,
+  const [settings, navVal, plugins] = await Promise.all([
+    getCached(c, "cms:settings", 600, async () => await getAllSettings(db)) as Promise<Record<string, string>>,
+    getCached(c, "cms:nav", 600, async () => (await getSetting(db, "nav")) ?? "[]") as Promise<string>,
     getCached(c, "cms:plugins", 300, async () => {
-      const rows = await db
-        .prepare("SELECT id, active FROM plugins")
-        .all<{ id: string; active: number }>();
-      return Object.fromEntries(
-        rows.results.map((p) => [p.id, p.active === 1]),
-      );
+      const rows = await db.prepare("SELECT id, active FROM plugins").all<{ id: string; active: number }>();
+      return Object.fromEntries(rows.results.map((p) => [p.id, p.active === 1]));
     }) as Promise<Record<string, boolean>>,
   ]);
 
+  const siteName = settings.site_name ?? "My Site";
+  const seoDescription = settings.seo_description ?? "";
+  const siteLogo = settings.site_logo ?? null;
   const nav: NavItem[] = JSON.parse(navVal);
 
   initActivePlugins(registry, plugins);
@@ -1064,6 +1094,7 @@ app.get("/:slug?", async (c) => {
         catsHtml;
     }
 
+    const origin = new URL(c.req.url).origin;
     const headPayload = await registry.executePipeline("render:head", {
       siteName,
       title: post.title,
@@ -1072,7 +1103,8 @@ app.get("/:slug?", async (c) => {
       meta: {
         title: post.title,
         description: post.excerpt ?? "",
-        url: new URL(c.req.url).href,
+        url: origin + c.req.path,
+        image: extractFirstImage(post.content, origin) ?? (siteLogo ? origin + siteLogo : ""),
       },
     });
     const bodyPayload = await registry.executePipeline("render:body", {
@@ -1100,10 +1132,12 @@ app.get("/:slug?", async (c) => {
     return r.results;
   });
 
+  const origin = new URL(c.req.url).origin;
   const meta = {
     title: siteName,
-    description: "",
-    url: new URL(c.req.url).href,
+    description: seoDescription,
+    url: origin + c.req.path,
+    image: siteLogo ? origin + siteLogo : "",
   };
   const rssLink =
     '<link rel="alternate" type="application/rss+xml" title="' +
@@ -1231,6 +1265,11 @@ function renderPostList(
   }
   html += "</div>";
   return html;
+}
+
+function extractFirstImage(content: string, origin: string): string | null {
+  const match = content.match(/!\[.*?\]\((\/img\/\d+)\)/);
+  return match ? origin + match[1] : null;
 }
 
 function esc(s: string): string {

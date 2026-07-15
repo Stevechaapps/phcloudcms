@@ -83,6 +83,13 @@ export async function getSetting(db: D1Database, key: string): Promise<string | 
   return row?.value ?? null;
 }
 
+export async function getAllSettings(db: D1Database): Promise<Record<string, string>> {
+  const rows = await db.prepare("SELECT key, value FROM settings").all<{ key: string; value: string }>();
+  const result: Record<string, string> = {};
+  for (const row of rows.results) result[row.key] = row.value;
+  return result;
+}
+
 export async function isConfigured(db: D1Database): Promise<boolean> {
   const val = await getSetting(db, 'status');
   return val === 'configured';
