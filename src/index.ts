@@ -70,16 +70,16 @@ app.use("*", onboardingGuard);
 
 // ── Auth ──────────────────────────────────────────────────────────
 app.post("/api/auth/login", async (c) => {
-  const sessionId = getCookie(c, SESSION_COOKIE);
-  if (sessionId) {
-    const sessionOk = await c.env.CACHE.get(`session:${sessionId}`);
+  let existingSessionId = getCookie(c, SESSION_COOKIE);
+  if (existingSessionId) {
+    const sessionOk = await c.env.CACHE.get(`session:${existingSessionId}`);
     if (sessionOk) {
       const { username, password } = await c.req.json<{ username?: string; password?: string }>();
       const admin = await c.env.DB.prepare("SELECT id, password_hash FROM admins WHERE username = ?").bind(String(username ?? "")).first<{ id: number; password_hash: string }>();
       const valid = admin && (await verifyPassword(String(password ?? ""), admin.password_hash));
       if (valid) {
-        setCookie(c, SESSION_COOKIE, sessionId, { maxAge: SESSION_TTL, path: "/", httpOnly: true, sameSite: "Lax", secure: true });
-        return c.json({ ok: true, sessionId });
+        setCookie(c, SESSION_COOKIE, existingSessionId, { maxAge: SESSION_TTL, path: "/", httpOnly: true, sameSite: "Lax", secure: true });
+        return c.json({ ok: true, sessionId: existingSessionId });
       }
     }
   }
@@ -988,7 +988,9 @@ app.get("/api/admin/nav", async (c) => {
   const auth = await requireAuth(c);
   if (auth instanceof Response) return auth;
   const val = await getSetting(c.env.DB, "nav");
-  return c.json(val ? JSON.parse(val) : []);
+  let navParsed: NavItem[];
+  try { navParsed = val ? JSON.parse(val) : []; } catch { navParsed = []; }
+  return c.json(navParsed);
 });
 
 // ── Admin: Pages (type=page) ──────────────────────────────────────
