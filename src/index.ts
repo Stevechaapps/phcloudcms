@@ -3,7 +3,6 @@ import type { Context } from "hono";
 import { CMSRegistry } from "./cms/registry.js";
 import { onboardingGuard, getCached } from "./cms/middleware.js";
 import { migrate, seed, isConfigured, getSetting, getAllSettings } from "./cms/d1.js";
-import { runMigrations } from "./cms/migrations.js";
 import { hashPassword, verifyPassword } from "./cms/auth.js";
 import { renderMarkdown } from "./cms/markdown.js";
 import { saveImage, getImage, deleteImage } from "./cms/images.js";
