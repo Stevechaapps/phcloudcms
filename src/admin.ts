@@ -183,19 +183,19 @@ export function newPostBody(): string {
 </div>
 <div class="form-group"><label for="excerpt">Excerpt <span style="color:#64748b;font-weight:400">(optional)</span></label><input type="text" id="excerpt" name="excerpt" /></div>
 <div class="form-group">
-  <label>Content <span style="color:#6474b;font-weight:400">(Markdown)</span> <button type="button" onclick="togglePreview(event)" class="btn btn-sm" style="float:right" title="Toggle preview">Preview</button></label>
+  <label>Content <span style="color:#6474b;font-weight:400">(Markdown)</span> <button type="button" onclick="togglePreview(event)" class="btn btn-sm" style="float:right" title="Toggle preview" aria-label="Toggle preview">Preview</button></label>
   <div class="toolbar">
-    <button type="button" onclick="mdWrap(event,'**','bold')" title="Bold"><strong>B</strong></button>
-    <button type="button" onclick="mdWrap(event,'*','italic')" title="Italic"><em>I</em></button>
+    <button type="button" onclick="mdWrap(event,'**','bold')" title="Bold" aria-label="Bold"><strong>B</strong></button>
+    <button type="button" onclick="mdWrap(event,'*','italic')" title="Italic" aria-label="Italic"><em>I</em></button>
     <span class="sep"></span>
-    <button type="button" onclick="mdLine(event,'## ')" title="Heading 2">H2</button>
-    <button type="button" onclick="mdLine(event,'### ')" title="Heading 3">H3</button>
+    <button type="button" onclick="mdLine(event,'## ')" title="Heading 2" aria-label="Heading 2">H2</button>
+    <button type="button" onclick="mdLine(event,'### ')" title="Heading 3" aria-label="Heading 3">H3</button>
     <span class="sep"></span>
-    <button type="button" onclick="mdLink(event)" title="Link">Link</button>
-    <button type="button" onclick="mdImage(event)" title="Image">Img</button>
+    <button type="button" onclick=\"mdLink(event)\" title=\"Link\" aria-label=\"Insert link\">Link</button>
+    <button type="button" onclick=\"mdImage(event)\" title=\"Image\" aria-label=\"Insert image\">Img</button>
     <span class="sep"></span>
-    <button type="button" onclick="mdLine(event,'> ')" title="Blockquote">Quote</button>
-    <button type="button" onclick="mdLine(event,'- ')" title="List item">List</button>
+    <button type="button" onclick="mdLine(event,'> ')" title="Blockquote" aria-label="Insert blockquote">Quote</button>
+    <button type="button" onclick="mdLine(event,'- ')" title="List item" aria-label="Insert list item">List</button>
   </div>
   <div id="editor-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;min-height:320px">
     <textarea id="content" name="content" required style="min-height:300px;resize:vertical"></textarea>
@@ -369,19 +369,19 @@ export function editBody(post: {
 </div>
 <div class="form-group"><label for="excerpt">Excerpt <span style="color:#64748b;font-weight:400">(optional)</span></label><input type="text" id="excerpt" name="excerpt" value="${escAttr(String(post.excerpt ?? ""))}" /></div>
  <div class="form-group">
-  <label>Content <span style="color:#64748b;font-weight:400">(Markdown)</span> <button type="button" onclick="togglePreview(event)" class="btn btn-sm" style="float:right" title="Toggle preview">Preview</button></label>
+  <label>Content <span style="color:#64748b;font-weight:400">(Markdown)</span> <button type="button" onclick="togglePreview(event)" class="btn btn-sm" style="float:right" title="Toggle preview" aria-label="Toggle preview">Preview</button></label>
   <div class="toolbar">
-    <button type="button" onclick="mdWrap(event,'**','bold')" title="Bold"><strong>B</strong></button>
-    <button type="button" onclick="mdWrap(event,'*','italic')" title="Italic"><em>I</em></button>
+    <button type="button" onclick="mdWrap(event,'**','bold')" title="Bold" aria-label="Bold"><strong>B</strong></button>
+    <button type="button" onclick="mdWrap(event,'*','italic')" title="Italic" aria-label="Italic"><em>I</em></button>
     <span class="sep"></span>
-    <button type="button" onclick="mdLine(event,'## ')" title="Heading 2">H2</button>
-    <button type="button" onclick="mdLine(event,'### ')" title="Heading 3">H3</button>
+    <button type="button" onclick="mdLine(event,'## ')" title="Heading 2" aria-label="Heading 2">H2</button>
+    <button type="button" onclick="mdLine(event,'### ')" title="Heading 3" aria-label="Heading 3">H3</button>
     <span class="sep"></span>
-    <button type="button" onclick="mdLink(event)" title="Link">Link</button>
-    <button type="button" onclick="mdImage(event)" title="Image">Img</button>
+    <button type="button" onclick=\"mdLink(event)\" title=\"Link\" aria-label=\"Insert link\">Link</button>
+    <button type="button" onclick=\"mdImage(event)\" title=\"Image\" aria-label=\"Insert image\">Img</button>
     <span class="sep"></span>
-    <button type="button" onclick="mdLine(event,'> ')" title="Blockquote">Quote</button>
-    <button type="button" onclick="mdLine(event,'- ')" title="List item">List</button>
+    <button type="button" onclick="mdLine(event,'> ')" title="Blockquote" aria-label="Insert blockquote">Quote</button>
+    <button type="button" onclick="mdLine(event,'- ')" title="List item" aria-label="Insert list item">List</button>
   </div>
   <div id="editor-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;min-height:320px">
     <textarea id="content" name="content" required style="min-height:300px;resize:vertical">${escHtml(post.content)}</textarea>
