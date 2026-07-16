@@ -70,6 +70,19 @@ app.use("*", onboardingGuard);
 
 // ── Auth ──────────────────────────────────────────────────────────
 app.post("/api/auth/login", async (c) => {
+  const sessionId = getCookie(c, SESSION_COOKIE);
+  if (sessionId) {
+    const sessionOk = await c.env.CACHE.get(`session:${sessionId}`);
+    if (sessionOk) {
+      const { username, password } = await c.req.json<{ username?: string; password?: string }>();
+      const admin = await c.env.DB.prepare("SELECT id, password_hash FROM admins WHERE username = ?").bind(String(username ?? "")).first<{ id: number; password_hash: string }>();
+      const valid = admin && (await verifyPassword(String(password ?? ""), admin.password_hash));
+      if (valid) {
+        setCookie(c, SESSION_COOKIE, sessionId, { maxAge: SESSION_TTL, path: "/", httpOnly: true, sameSite: "Lax", secure: true });
+        return c.json({ ok: true, sessionId });
+      }
+    }
+  }
   const ip = c.req.header("cf-connecting-ip") ?? "unknown";
   const key = `login:${ip}`;
   const count = await c.env.CACHE.get(key);
@@ -655,7 +668,15 @@ app.post("/api/admin/images", async (c) => {
   const match = data.match(/^data:(image\/\w+);base64,(.+)$/);
   if (!match) return c.json({ error: "Invalid image data" }, 400);
   const mime = match[1];
+  const ALLOWED_MIMES = ["image/png", "image/jpeg", "image/webp"];
+  if (!ALLOWED_MIMES.includes(mime)) {
+    return c.json({ error: `Unsupported image type: ${mime}. Allowed: PNG, JPEG, WebP.` }, 400);
+  }
   const base64 = match[2];
+  const MAX_BASE64 = 700000; // ~500KB decoded
+  if (base64.length > MAX_BASE64) {
+    return c.json({ error: "Image too large. Maximum size is ~500KB." }, 413);
+  }
   const binaryStr = atob(base64);
   const bytes = new Uint8Array(binaryStr.length);
   for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
