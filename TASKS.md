@@ -1,62 +1,61 @@
 # PHCloud CMS — Active Task Board
-Status: migration complete, beginning Phase 2 security fixes
+Status: Phase 2 security fixes — P0 partially open, P1 complete
 
 ---
 
-## 🟢 Done
-- [x] Create migration tracking system (`src/cms/migrations.ts`)
-- [x] Create backfill SQL (`backfill.sql`)
-- [x] Wire `/migrate` one-shot endpoint → deployed, ran successfully (11 migrations applied)
-- [x] Remove `/migrate` endpoint after successful run
-- [x] Cleanup unused import
+## Done (this session)
+- [x] Migration tracking + backfill.sql
+- [x] /migrate one-shot endpoint → deployed, ran (11 applied), then removed
+- [x] WCAG: aria-label on all 16 toolbar buttons
+- [x] WCAG: aria-live="polite" + role=status on all 6 status divs
+- [x] P1: content textarea for="content" (newPostBody + editBody)
+- [x] P1: nav inputs aria-label="Link label"/"Link URL"
+- [x] P1: light-mode accent #f97316 → #b45309 (4.80:1, passes WCAG AA)
+- [x] P2: catCheckboxes → tagCheckboxes ID mismatch
+- [x] P2: logout <a href="#"> → <button type="button">
+- [x] P0: escHtml() added missing " escape (admin.ts — matches escAttr)
+- [x] P0: ea() line 970 in imagesBody — entity chars were literal, fixed to proper entities
 
 ---
 
-## 🔴 P0 — Security (blocking, do before anything else)
-
-- [ ] Fix broken `ea()` entity encoder (6 instances in admin.ts)
-  - Verify each instance with raw-byte inspection
-  - Replace only the genuinely broken ones
-  - Add regression test pattern to prevent recurrence
-- [ ] SVG XSS — whitelist MIME types + magic-byte validation
-  - Allowed: image/png, image/jpeg, image/webp
-  - Reject with clear 400 error before atob()
-- [ ] `escHtml()` missing `"` escape (admin.ts:999)
-- [ ] Login rate limit: bypass for sessions with valid auth cookie
-- [ ] Image upload: 500KB base64 size limit before atob()
+## 🔴 P0 — Security (blocking)
+- [ ] Verify ea() on all 5 remaining instances match line 970 fix (raw-byte audit)
+- [ ] Confirm image MIME whitelist + size limit committed in 7b8e86b
+- [ ] Confirm login rate-limit bypass committed in 7b8e86b
+- [ ] Add regression guard: test that escHtml/ea escape all 5 chars
 
 ---
 
 ## 🟠 P1 — Accessibility (WCAG 2.1 AA)
-
-- [ ] Toolbar buttons: add `aria-label` (8 buttons × 2 forms = 16 instances)
-- [ ] Status divs: add `aria-live="polite"` + `role="status"` (5 locations)
-- [x] Content textarea: add `for="content"` label association (forms in newPostBody + editBody — pages already had it)
-- [x] Nav inputs: add `aria-label` (navBody, 2 inputs — used aria-label instead of <label for> to avoid disrupting flex layout)
-- [x] Public link color: light scheme `--accent` `#f97316` (2.68:1) → `#b45309` (4.80:1 pass). Dark scheme unchanged (`#f97316` already 5.22:1+).
+- [x] Toolbar buttons: aria-label (8 × 2 = 16 instances)
+- [x] Status divs: aria-live="polite" + role="status" (6 locations)
+- [x] Content textarea: for="content" label association (2 forms)
+- [x] Nav inputs: aria-label (navBody, 2 inputs)
+- [x] Public link color: #b45309 (4.80:1 on #f8fafc, passes AA)
 
 ---
 
 ## 🟡 P2 — Correctness bugs
-
-- [ ] Fix `catCheckboxes` → `tagCheckboxes` ID mismatch (2 locations)
-- [ ] `JSON.parse` without try/catch (middleware.ts:151, index.ts:1117)
-- [x] Logout `<a href="#">` → `<button type="button">`
+- [x] catCheckboxes → tagCheckboxes ID mismatch
+- [x] JSON.parse with try/catch in middleware + index.ts (3 locations)
+- [x] Logout <a href="#"> → <button type="button">
 - [ ] Add skip-to-main-content link (adminShell + shellFull)
-- [ ] Public 404: add `<head>`, styles, viewport
+- [ ] Public 404: add <head>, styles, viewport
 
 ---
 
-## 🔵 P3 — Polish
-
-- [ ] Plugin pipeline: replace bare `catch {}` with `console.error` logging
+## 🟢 P3 — Polish (not blocking)
+- [ ] Plugin pipeline: bare catch {} → console.error logging
 - [ ] Standardize topbar/sidebar nav labels
-- [ ] Add image library pagination controls
-- [ ] Image delete confirm → show filename (match image lib style for posts)
-- [ ] Page editor forms: add Markdown toolbar + preview (parity with post editor)
+- [ ] Image library: add pagination controls
+- [ ] Image delete confirm → show filename
+- [ ] Page editor: Markdown toolbar + preview (parity with post editor)
 
 ---
 
 ## Decision log
-- Migration approach: `runMigrations()` in code + standalone `backfill.sql` for manual runs — both exist, endpoint was one-shot and removed
-- `ea()` fix: will verify raw bytes before editing, not blind-replacing all 6
+- Migration: runMigrations() in code + backfill.sql for manual runs; endpoint was one-shot and removed
+- ea() fix: raw-byte verify before edit; line 970 had empty entities that deleted chars instead of escaping
+- Auth: login rate-limit bypass for valid session cookies — prevents self-lockout
+- Images: PNG/JPEG/WebP only, ≤700KB base64 before atob() (≈500KB decoded)
+- P0 item count: originally 5, image+login fixes committed in 7b8e86b, escHtml+ea in latest

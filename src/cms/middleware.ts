@@ -148,7 +148,9 @@ function serveOnboardingUI(c: Context): Response {
 
 export async function getCached<T>(c: Context, key: string, ttlSeconds: number, fetcher: () => Promise<T>): Promise<T> {
   const cached = await c.env.CACHE.get(key);
-  if (cached) return JSON.parse(cached) as T;
+  if (cached) {
+    try { return JSON.parse(cached) as T; } catch { /* stale entry — revalidate */ }
+  }
 
   const value = await fetcher();
   await c.env.CACHE.put(key, JSON.stringify(value), { expirationTtl: ttlSeconds });

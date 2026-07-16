@@ -877,8 +877,8 @@ function render(){
 var html='<div style="background:white;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">';
 for(var i=0;i<items.length;i++){
 html+='<div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;border-bottom:1px solid #f1f5f9">';
-html+='<input type="text" placeholder="Label" value="'+ea(items[i].label)+'" onchange="items['+i+'].label=this.value" style="flex:1;padding:0.4rem;border:1px solid #cbd5e1;border-radius:3px;font-size:0.9rem" />';
-html+='<input type="text" placeholder="URL" value="'+ea(items[i].url)+'" onchange="items['+i+'].url=this.value" style="flex:1;padding:0.4rem;border:1px solid #cbd5e1;border-radius:3px;font-size:0.9rem" />';
+html+='<input type="text" placeholder="Label" aria-label="Link label" value="'+ea(items[i].label)+'" onchange="items['+i+'].label=this.value" style="flex:1;padding:0.4rem;border:1px solid #cbd5e1;border-radius:3px;font-size:0.9rem" />';
+html+='<input type="text" placeholder="URL" aria-label="Link URL" value="'+ea(items[i].url)+'" onchange="items['+i+'].url=this.value" style="flex:1;padding:0.4rem;border:1px solid #cbd5e1;border-radius:3px;font-size:0.9rem" />';
 html+='<button class="btn btn-sm btn-danger" onclick="removeItem('+i+')">✕</button></div>'}
 html+='</div>';
 document.getElementById('items').innerHTML=html||'<p style="color:#94a3b8">No navigation links yet.</p>'}
@@ -967,7 +967,7 @@ export function imagesBody(): string {
 .image-card .info .actions{margin-top:0.4rem}
 </style>
 <script>
-function ea(s){return s.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"').replace(/'/g,'&#39;')}
+function ea(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function fmtSize(b){return b>1048576?(b/1048576).toFixed(1)+' MB':b>1024?(b/1024).toFixed(1)+' KB':b+' B'}
 fetch('/api/admin/images').then(function(r){return r.json()}).then(function(data){var imgs=data.results||[];
 document.getElementById('imgCount').textContent=data.total+' image'+(data.total===1?'':'s');
@@ -997,7 +997,7 @@ function esc(s: string): string {
 }
 
 function escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function escAttr(s: string): string {
