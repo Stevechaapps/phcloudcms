@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import { CMSRegistry } from "./cms/registry.js";
 import { onboardingGuard, getCached } from "./cms/middleware.js";
 import { migrate, seed, isConfigured, getSetting, getAllSettings } from "./cms/d1.js";
+import { runMigrations } from "./cms/migrations.js";
 import { hashPassword, verifyPassword } from "./cms/auth.js";
 import { renderMarkdown } from "./cms/markdown.js";
 import { saveImage, getImage, deleteImage } from "./cms/images.js";
@@ -734,6 +735,19 @@ function initActivePlugins(registry: CMSRegistry, active: Record<string, boolean
 }
 
 app.get("/health", (c) => c.json({ ok: true }));
+
+// ── One-shot migrate (delete after running) ─────────────────────────────
+app.get("/migrate", async (c) => {
+  const db = c.env.DB;
+  const before = await runMigrations(db);
+  const { backfillMissingDefaults } = await import("./cms/migrations.js");
+  await backfillMissingDefaults(db);
+  return c.json({
+    ok: true,
+    applied: before,
+    note: "Delete this endpoint after confirming the migration ran successfully.",
+  });
+});
 
 // ── RSS feed ──────────────────────────────────────────────────────
 
