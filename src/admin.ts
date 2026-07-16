@@ -429,7 +429,7 @@ var html='';
 for(var i=0;i<cats.length;i++){
 var checked=postCatIds.indexOf(cats[i].id)!==-1?' checked':'';
 html+='<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer"><input type="checkbox" value="'+cats[i].id+'" class="tag-cb"'+checked+' /> '+cats[i].name+'</label>'}
-document.getElementById('catCheckboxes').innerHTML=html||'<span style="color:#94a3b8;font-size:0.85rem">No tags yet.</span>'});
+document.getElementById('tagCheckboxes').innerHTML=html||'<span style="color:#94a3b8;font-size:0.85rem">No tags yet.</span>'});
 
 document.getElementById('form').addEventListener('submit',function(e){
 e.preventDefault();
