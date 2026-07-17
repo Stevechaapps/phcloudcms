@@ -139,6 +139,7 @@ return '<tr>'
 +'<button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button>'
 +'</td></tr>'}).join('');renderAdminPage(data.page,data.totalPages)}).catch(function(e){console.error('loadPosts failed',e);window.location.href='/admin/login'})
 function del(id){if(!confirm('Delete?'))return;fetch('/api/admin/posts/'+id,{method:'DELETE'}).then(function(r){if(!r.ok)throw new Error('fail');location.reload()}).catch(function(){alert('Delete failed.')})}
+}
 loadPosts();</script>`;
 }
 
@@ -172,6 +173,7 @@ tbody.innerHTML=data.results.map(function(p){return '<tr>'
 +'<button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button>'
 +'</td></tr>'}).join('');renderAdminPage(data.page,data.totalPages)}).catch(function(e){console.error('loadPosts failed',e);window.location.href='/admin/login'})
 function del(id){if(!confirm('Delete?'))return;fetch('/api/admin/posts/'+id,{method:'DELETE'}).then(function(r){if(!r.ok)throw new Error('fail');location.reload()}).catch(function(){alert('Delete failed.')})}
+}
 loadPosts();</script>`;
 }
 
@@ -234,10 +236,11 @@ var slugEl=document.getElementById('slug');
 titleEl.addEventListener('input',function(){
 slugEl.value=titleEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
 });
+function ea(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 fetch('/api/admin/tags').then(function(r){return r.json()}).then(function(cats){
 var html='';
 for(var i=0;i<cats.length;i++){
-html+='<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer"><input type="checkbox" value="'+cats[i].id+'" class="tag-cb" /> '+cats[i].name+'</label>'}
+html+='<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer"><input type="checkbox" value="'+ea(cats[i].id)+'" class="tag-cb" /> '+ea(cats[i].name)+'</label>'}
 document.getElementById('tagCheckboxes').innerHTML=html||'<span style="color:#94a3b8;font-size:0.85rem">No tags yet. <a href="/admin/tags">Manage tags</a>.</span>'});
 function getTagIds(){var ids=[];[].forEach.call(document.querySelectorAll('.tag-cb:checked'),function(cb){ids.push(Number(cb.value))});return ids}
 document.getElementById('form').addEventListener('submit',function(e){
@@ -423,6 +426,7 @@ titleEl.addEventListener('input',function(){
 slugEl.value=titleEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
 });
 function getTagIds(){var ids=[];[].forEach.call(document.querySelectorAll('.tag-cb:checked'),function(cb){ids.push(Number(cb.value))});return ids}
+function ea(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 var postCatReq=fetch('/api/admin/posts/${id}/tags').then(function(r){return r.json()});
 var allCatReq=fetch('/api/admin/tags').then(function(r){return r.json()});
 Promise.all([postCatReq,allCatReq]).then(function(results){
@@ -431,7 +435,7 @@ var cats=results[1];
 var html='';
 for(var i=0;i<cats.length;i++){
 var checked=postCatIds.indexOf(cats[i].id)!==-1?' checked':'';
-html+='<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer"><input type="checkbox" value="'+cats[i].id+'" class="tag-cb"'+checked+' /> '+cats[i].name+'</label>'}
+html+='<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;cursor:pointer"><input type="checkbox" value="'+ea(cats[i].id)+'" class="tag-cb"'+checked+' /> '+ea(cats[i].name)+'</label>'}
 document.getElementById('tagCheckboxes').innerHTML=html||'<span style="color:#94a3b8;font-size:0.85rem">No tags yet.</span>'});
 
 document.getElementById('form').addEventListener('submit',function(e){
