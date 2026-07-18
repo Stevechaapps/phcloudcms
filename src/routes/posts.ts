@@ -61,7 +61,10 @@ export function registerPostRoutes(app: App): void {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return auth;
 
-    const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10));
+    // Clamp page to a sane positive int: parseInt("NaN"/"abc") is NaN,
+    // and Math.max(1, NaN) === NaN would then bind NaN to D1 and 500.
+    // `|| 1` coerces NaN/0 to 1 so a malformed ?page= never crashes the list.
+    const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10) || 1);
     const limit = 20;
     const offset = (page - 1) * limit;
     const countRow = await c.env.DB.prepare(
