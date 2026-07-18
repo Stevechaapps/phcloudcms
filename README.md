@@ -1,98 +1,104 @@
 # ☁️ PHCloud CMS
 
-**The world's lightest CMS** — runs entirely free on Cloudflare's free tier.
+**A tiny, self-hosted CMS that runs entirely on Cloudflare's free tier.**
+
+One runtime dependency ([Hono](https://hono.dev)). Content lives in D1 (serverless SQLite), images and sessions in KV. No external databases, no S3, no API keys, no credit card. Push to `main` and Cloudflare Workers Builds ships it.
 
 ```
-~40KB bundle · One dependency (hono) · Free forever on Cloudflare
+Cloudflare Workers · Hono v4 · D1 + KV · TypeScript · one dependency
 ```
 
 ---
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
-- [Step 1 — Fork the Repository](#step-1--fork-the-repository)
-- [Step 2 — Create a D1 Database](#step-2--create-a-d1-database)
-- [Step 3 — Create a KV Namespace](#step-3--create-a-kv-namespace)
-- [Step 4 — Add Bindings to wrangler.toml](#step-4--add-bindings-to-wranglertoml)
-- [Step 5 — Deploy](#step-5--deploy)
-  - [Path A — Workers Builds (Git Integration, Auto-Deploy)](#path-a--workers-builds-git-integration-auto-deploy)
-  - [Path B — Wrangler CLI](#path-b--wrangler-cli)
-- [Step 6 — Shorten Your workers.dev Subdomain](#step-6--shorten-your-workersdev-subdomain)
-- [Step 7 — Run the Onboarding Wizard](#step-7--run-the-onboarding-wizard)
-- [Step 8 — Write Your First Post](#step-8--write-your-first-post)
-- [Local Development](#local-development)
+- [What it is](#what-it-is)
 - [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Plugin System](#plugin-system)
+- [Prerequisites](#prerequisites)
+- [Quick start (5 steps)](#quick-start-5-steps)
+  - [1 — Fork the repo](#1--fork-the-repo)
+  - [2 — Create a D1 database](#2--create-a-d1-database)
+  - [3 — Create a KV namespace](#3--create-a-kv-namespace)
+  - [4 — Add bindings to wrangler.toml](#4--add-bindings-to-wranglertoml)
+  - [5 — Deploy](#5--deploy)
+- [Run the onboarding wizard](#run-the-onboarding-wizard)
+- [Writing content](#writing-content)
+- [Images](#images)
+- [Local development](#local-development)
+- [Project structure](#project-structure)
+- [Themes](#themes)
+- [Plugins](#plugins)
+- [Security](#security)
+- [Tech stack](#tech-stack)
 - [FAQ / Troubleshooting](#faq--troubleshooting)
 - [License](#license)
 
 ---
 
-## Prerequisites
+## What it is
 
-Before you begin, you need exactly two things:
+PHCloud is a single-worker CMS for one site. You write posts and pages in a browser-based WYSIWYG editor; they're stored as sanitized HTML in D1 and rendered through a static theme. It ships with tags, RSS, sitemap, search, SEO meta tags, and a hooks-based plugin system — all inside one Worker.
 
-1. **A GitHub account** — [sign up free](https://github.com/signup)
-2. **A Cloudflare account** — [sign up free](https://dash.cloudflare.com/sign-up/workers-and-pages)
+It is deliberately small: one Hono app, one router, one dependency. There is no build step, no `node_modules` shipped to the edge, and no framework runtime.
 
-No credit card is required for either. The free tier handles everything this CMS needs.
+## Features
+
+| Feature | What it does |
+|---|---|
+| **Admin panel** | Dashboard + full CRUD for posts, pages, tags, navigation, and settings |
+| **WYSIWYG editor** | `contentEditable` rich-text editor with a formatting toolbar (bold, italic, H2/H3, link, image, blockquote, list). The toolbar buttons reflect the active selection. No markdown parser. |
+| **Scheduled posts** | Publish immediately or schedule for a later datetime; unpublished posts have a private preview link |
+| **Image upload** | Paste or drag an image → resized to ≤1200px and compressed to WebP client-side → stored in D1 → served from `/img/:id`, browser-cached as immutable |
+| **Pages** | Static pages (About, Contact, Privacy…) alongside posts |
+| **Tags** | Organize posts; browse at `/tag/:slug` |
+| **Navigation** | Custom header links, editable from the admin |
+| **Search** | Full-text search at `/search?q=…` |
+| **RSS feed** | Auto-generated at `/feed.xml` |
+| **XML sitemap** | Auto-generated at `/sitemap.xml` |
+| **Themes** | One static theme file (`src/themes/default.ts`) compiled into the Worker; light/dark mode automatic via `prefers-color-scheme` |
+| **Plugins** | Hooks-based TypeScript plugins. Built-in: SEO, Sitemap, Tag Cloud |
+| **Onboarding wizard** | First-run setup in the browser — creates your admin account and seeds defaults |
+| **Auth** | PBKDF2 password hashing (Web Crypto, 100k iterations), HTTP-only cookies, KV-backed sessions |
+| **Caching** | Posts, settings, and nav cached in KV; image bytes cached in KV for 30 days. Cache is invalidated on publish/edit/delete. |
+| **Edge security** | CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, strict referrer policy, locked-down permissions policy |
 
 ---
 
-## Step 1 — Fork the Repository
+## Prerequisites
 
-A fork is your own copy of the code. Your site = your fork.
+Two free accounts, no credit card on either:
 
-1. Open a browser and go to [github.com/Stevechaapps/phcloudcms](https://github.com/Stevechaapps/phcloudcms)
-2. Click the **Fork** button (top-right of the page)
-3. On the fork page:
-   - **Owner**: select your personal GitHub account
-   - **Repository name**: you can keep `phcloudcms` or change it
-   - **Description**: optional
-   - **Copy the `main` branch only**: leave checked
-4. Click **Create fork**
+1. **A GitHub account** — [sign up](https://github.com/signup)
+2. **A Cloudflare account** — [sign up](https://dash.cloudflare.com/sign-up/workers-and-pages)
+
+## Quick start (5 steps)
+
+### 1 — Fork the repo
+
+1. Go to [github.com/Stevechaapps/phcloudcms](https://github.com/Stevechaapps/phcloudcms)
+2. Click **Fork** (top-right), pick your account, keep the `main` branch, click **Create fork**
 
 You now have `https://github.com/<your-username>/phcloudcms`.
 
----
+### 2 — Create a D1 database
 
-## Step 2 — Create a D1 Database
+D1 is Cloudflare's serverless SQLite — where all content lives.
 
-D1 is Cloudflare's serverless SQLite database. PHCloud stores all content (posts, settings, plugins, admins) in D1.
+1. Cloudflare Dashboard → **D1 SQL database** → **Create database**
+2. Name it `phcloud-db`, leave location hint blank, click **Create**
+3. Copy the **database ID** (a UUID). You need it in step 4.
 
-1. In the Cloudflare Dashboard, click **D1 SQL database** in the left sidebar
-2. Click the **Create Database** button (blue, top-right)
-3. In the **Database name** field, enter `phcloud-db`
-4. **Location hint** — optional. Leave blank.
-5. Click **Create**
-6. On the database page, **copy the database ID** (a UUID like `a1b2c3d4-...`). You need it in Step 4.
+### 3 — Create a KV namespace
 
----
+KV holds image bytes, sessions, and the rendered-page cache.
 
-## Step 3 — Create a KV Namespace
+1. Cloudflare Dashboard → **Workers KV** → **Create instance**
+2. Name it `phcloud-cache`, click **Create**
+3. Copy the **namespace ID**. You need it in step 4.
 
-KV is Cloudflare's key-value store. PHCloud uses it for caching and session storage.
+### 4 — Add bindings to wrangler.toml
 
-1. In the Cloudflare Dashboard, click **Workers KV** in the left sidebar
-2. Click the **Create instance** button (blue, top-right)
-3. In the **Namespace name** field, enter `phcloud-cache`
-4. Click **Create**
-5. On the namespace detail page, **copy the namespace ID** (a UUID). You need it in Step 4.
-
----
-
-## Step 4 — Add Bindings to wrangler.toml
-
-Unlike the old Cloudflare Pages, Workers requires bindings to be defined in the project's config file. You must put your D1 database ID and KV namespace ID into `wrangler.toml` **before** deploying.
-
-### Edit wrangler.toml in your fork
-
-1. Go to your fork on GitHub (`https://github.com/<your-username>/phcloudcms`)
-2. Click on `wrangler.toml`
-3. Click the pencil icon (**Edit this file**)
-4. Replace the placeholder values with your real IDs:
+Workers reads bindings from the config file, not the dashboard. Open `wrangler.toml` in your fork and paste in the two IDs you just copied:
 
 ```toml
 name = "phcloudcms"
@@ -110,291 +116,202 @@ binding = "CACHE"
 id = "<YOUR_KV_NAMESPACE_ID>"
 ```
 
-Replace:
-- `<YOUR_D1_DATABASE_ID>` with the ID you copied in Step 2
-- `<YOUR_KV_NAMESPACE_ID>` with the ID you copied in Step 3
+Commit the change to `main` on your fork.
 
-5. At the bottom, write a commit message like `add D1 and KV bindings`
-6. Click **Commit changes**
+> Cloudflare Workers Builds **wipes dashboard bindings that aren't in `wrangler.toml`** on every deploy — so the config file must hold your real IDs before you deploy.
 
----
+### 5 — Deploy
 
-## Step 5 — Deploy
+Pick one path:
 
-Choose one of these two paths:
-
-| | Path A — Workers Builds | Path B — Wrangler CLI |
+| | Workers Builds (auto-deploy) | Wrangler CLI |
 |---|---|---|
-| **Auto-deploy on push?** | Yes | No (manual) |
-| **Requires CLI?** | No (dashboard only) | Yes |
-| **Best for** | Beginners, set-and-forget | Developers |
+| Auto-deploys on push? | Yes | No (manual) |
+| Needs the CLI? | No | Yes |
+| Best for | Most people | Developers |
 
----
+**Path A — Workers Builds (dashboard, recommended):**
 
-## Path A — Workers Builds (Git Integration, Auto-Deploy)
+1. Cloudflare Dashboard → **Workers & Pages** → **Create application** → **Continue with Github**
+2. Authorize Cloudflare to read your fork if asked, then select your `phcloudcms` repo
+3. Production branch: `main`. Build command: **leave blank**. Deploy command: `npx wrangler deploy`. Root: blank.
+4. Click **Save and Deploy**. Wait for **Success** (~30–60s).
 
-This connects your fork to Cloudflare so every push deploys automatically.
-
-### Create the Worker
-
-1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com)
-2. In the left sidebar, click **Workers & Pages**
-3. Click the **Create application** button (blue, top-right area)
-4. Click **Continue with Github**
-
-   - **If your GitHub account is already linked** — a list of your repositories appears immediately
-   - **If not linked** — a GitHub authorization popup appears. Click **Install & Authorize**, select your fork, then click **Install & Authorize**
-
-5. Find your fork (`<your-username>/phcloudcms`)
-6. Click the row or **Select** button next to it
-
-### Configure Build Settings
-
-1. **Project name** — auto-filled from the repo name. Pick something short (e.g. `ph`, `cms`, `blog`).
-2. **Production branch** — leave as `main`
-3. **Build command** — leave **blank**
-4. **Deploy command** — leave as `npx wrangler deploy`
-5. **Root directory** — leave blank
-
-### Deploy
-
-1. Click **Save and Deploy**
-2. Wait for **Success** (about 30–60 seconds)
-3. You are taken to your Worker's dashboard
-
-Your Worker is now live at `https://<project-name>.<your-subdomain>.workers.dev`.
-
----
-
-## Path B — Wrangler CLI
-
-Use this if you want to deploy from your terminal.
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) v18 or later
-- Git
-
-### Deploy
+**Path B — Wrangler CLI:**
 
 ```bash
-# Clone your fork (with your updated wrangler.toml)
 git clone https://github.com/<your-username>/phcloudcms.git
 cd phcloudcms
-
-# Install dependencies
 npm install
-
-# Log in to Cloudflare (opens browser)
-npx wrangler login
-
-# Deploy
+npx wrangler login      # opens a browser to authorize
 npx wrangler deploy
 ```
 
----
+Your site goes live at `https://<project-name>.<your-subdomain>.workers.dev`.
 
-## Step 6 — Shorten Your workers.dev Subdomain
+> Want a shorter URL? In Workers & Pages → **Change** your account subdomain (e.g. `steve`), and/or rename the Worker (Settings → Service name) to something short like `ph`. Shortest: `ph.steve.workers.dev`.
 
-Your URL is `<worker-name>.<account-subdomain>.workers.dev`. Two ways to make it shorter:
+## Run the onboarding wizard
 
-### Change the account subdomain
-
-1. Go to **Workers & Pages** in the dashboard
-2. Next to **Your subdomain**, click **Change**
-3. Enter something short (e.g. `steve` instead of `stevechaapps`)
-4. Click **Save**
-
-### Rename the worker
-
-1. In your Worker's dashboard, go to **Settings**
-2. Next to **Service name**, click **Change**
-3. Enter a short name (e.g. `ph`, `cms`, `blog`)
-
-Shortest possible: something like `ph.steve.workers.dev`.
-
----
-
-## Step 7 — Run the Onboarding Wizard
-
-1. Visit `https://<your-worker>.<your-subdomain>.workers.dev`
-2. The **Setup Wizard** appears:
-   - **Site Name** — your site's title
-   - **Admin Username** — defaults to "admin"
-   - **Admin Password** — at least 8 characters
-   - **SEO Plugin** — recommended ON
-   - **Sitemap Plugin** — recommended ON
+1. Visit your Worker URL
+2. The **Setup Wizard** appears on first run (it disappears once the admin account exists). Fill in:
+   - **Site name**
+   - **Admin username** (defaults to `admin`)
+   - **Admin password** (≥ 8 characters)
+   - **SEO plugin** — recommended on
+   - **Sitemap plugin** — recommended on
 3. Click **Initialize Core Systems**
-4. You are automatically logged in and redirected to `/admin`
 
-**You're done.** Every future push to `main` auto-deploys.
+This creates the D1 schema (`migrate`), seeds defaults, and logs you in. You land on `/admin`.
 
----
+## Writing content
 
-## Step 8 — Write Your First Post
-
-1. In the admin dashboard, click **New Post**
-2. Enter a title, write content in Markdown, check **Publish immediately**
+1. **New Post** → enter a title, write in the WYSIWYG editor
+2. Toggle **Publish immediately** or **Schedule for later** (pick a datetime)
 3. Click **Save Post**
 
-Your post appears on the homepage immediately.
+Published posts appear on the homepage immediately (publishing invalidates the cache). Drafts stay private; an unpublished post gets a shareable **Preview** link in the editor.
 
----
+## Images
 
-## Adding Images to Posts
+Images are stored **in D1** — no external bucket, no API key.
 
-PHCloud stores images **locally in your D1 database** — no external service, no API key, no credit card.
+Paste an image into the editor (Ctrl+V), or drag one onto it:
 
-When you paste an image (Ctrl+V) into the post editor:
+1. The browser resizes it to ≤1200px wide and re-encodes it to WebP (quality 0.7) on a `<canvas>`
+2. The compressed bytes are uploaded as base64 to your Worker, stored in the `images` D1 table
+3. An `<img src="/img/42">` is inserted at the caret
+4. `/img/:id` serves the bytes from KV (cached 30 days) with `Cache-Control: public, max-age=31536000, immutable`
 
-1. The image is **compressed to WebP** on your browser (~1200px max width, quality 0.7)
-2. The compressed image is uploaded as base64 to your Worker
-3. Your Worker stores it in the `images` D1 table and returns a URL like `/img/42`
-4. The Markdown `![](/img/42)` is inserted at your cursor position
-
-Images are served from D1 and cached in KV for 30 days. Browser cache is set to `immutable, max-age=31536000`.
-
----
-
-## Local Development
+## Local development
 
 ```bash
-# Clone your fork
 git clone https://github.com/<your-username>/phcloudcms.git
 cd phcloudcms
-
-# Install dependencies
 npm install
-
-# Run dev server (creates local D1 + KV automatically)
-npm run dev
+npm run dev          # wrangler dev on http://localhost:8787
 ```
 
-Dev server runs at `http://localhost:8787`.
+`wrangler dev` provisions a local D1 and KV from your `wrangler.toml` bindings. On first visit the onboarding wizard appears and `migrate` creates the schema locally — same flow as production.
 
-### Type Checking
+Scripts:
 
 ```bash
-npx tsc --noEmit
+npm run dev        # generate theme index + wrangler dev
+npm run build      # generate theme index + tsc --noEmit (type-check)
+npm run lint       # prettier --check src/
+npm run lint:fix   # prettier --write src/
 ```
 
----
+## Project structure
 
-## Features
+```
+src/
+  index.ts          Worker entrypoint — middleware + route registration (catch-all last)
+  cms/              framework bits: auth, d1 (migrate), sanitize, escape, render, registry, middleware
+  admin/            admin UI: shell, dashboard, posts, pages, tags, nav, images, plugins, settings, editor, login
+  routes/           HTTP routes by domain: posts, pages, tags, nav, images, plugins, install, wipe, public, settings, auth
+  plugins/          built-in plugins: seo, sitemap, tag-cloud
+  themes/           default.ts (single static theme) + generated index.ts
+```
 
-| Feature | Description |
-|---|---|---|
-| **Admin Panel** | Dashboard, full CRUD for posts/pages/categories, navigation editor, settings |
-| **Markdown Editor** | Toolbar (bold, italic, headings, links, lists, code, preview) + paste-to-upload images |
-| **Image Upload** | Paste any image → compressed to WebP client-side → stored in D1 → served via `/img/:id` |
-| **Pages** | Static pages (About, Contact, Privacy, etc.) alongside posts |
-| **Tags** | Organize content with tags, browse by `/tag/:slug` |
-| **Navigation** | Custom header links, editable from admin |
-| **Search** | Full-text search at `/search?q=...` |
-| **RSS Feed** | Auto-generated `/feed.xml` |
-| **Theme System** | Static theme file in `src/themes/default.ts`, reskin by editing (see `THEMES.md`) |
-| **Dark Mode** | Automatic via `prefers-color-scheme`, no toggle needed |
-| **Plugin System** | Hooks-based plugins in TypeScript, distributed via GitHub |
-| **Onboarding Wizard** | First-run setup via browser |
-| **SEO Built-in** | Meta tags, Open Graph, Twitter Cards |
-| **XML Sitemap** | Auto-generated `/sitemap.xml` |
-| **Session Auth** | PBKDF2 hashing, HTTP-only cookies, KV sessions |
-| **KV Caching** | Config + posts cached for speed |
-| **Free Hosting** | Cloudflare free tier |
-| **Auto Deploy** | Push to `main` → deploys via Workers Builds |
+Routing lives in `src/routes/*`; the admin HTML bodies live in `src/admin/*`; the framework glue (auth, DB, sanitization, plugin registry) lives in `src/cms/*`. The editor's inline JavaScript is shared in `src/admin/editor.ts`.
 
----
+## Themes
 
-## Tech Stack
+There is a single static theme file at [`src/themes/default.ts`](src/themes/default.ts). Themes are **not** plugins and there is no runtime theme registry — the theme is compiled into the Worker.
+
+```typescript
+export const layout = 'centered';   // reserved — only 'centered' is implemented
+export const css = `…`;
+```
+
+- **Light/dark** is automatic via `@media (prefers-color-scheme: dark)` — no toggle.
+- **Reskin** by editing `:root` colors in `src/themes/default.ts`, then commit + push.
+- **Swap** by pointing the import in `src/cms/render.ts` at a different theme file.
+
+See [`THEMES.md`](THEMES.md).
+
+## Plugins
+
+A hooks-based plugin system: plugins register a manifest + hook bindings against a pipeline (`CMSRegistry` in `src/cms/registry.ts`). Built-in: **SEO**, **Sitemap**, **Tag Cloud**.
+
+The intended distribution flow is GitHub-based — a plugin is a `.ts` file you drop into your fork and enable in the admin:
+
+```
+Developer writes a plugin → publishes on GitHub
+Site owner drops the .ts file into their fork → commits → enables in admin
+```
+
+See [`PLUGIN_DEV.md`](PLUGIN_DEV.md) and [`PLUGIN_STARTER.md`](PLUGIN_STARTER.md).
+
+## Security
+
+Set globally on every response in `src/index.ts`:
+
+- `Content-Security-Policy`: `default-src 'self'` (inline scripts/styles allowed for the dynamic templates)
+- `Strict-Transport-Security`: `max-age=31536000; includeSubDomains`
+- `X-Frame-Options: DENY` · `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy`: camera/microphone/geolocation disabled
+
+Post and page content is run through an allowlist HTML sanitizer (a tiny tokenizer in `src/cms/sanitize.ts` — no DOM on the Workers runtime) on **both write and read**. `style` attributes and `data:` URLs are not allowed; the editor emits semantic tags via `execCommand`.
+
+## Tech stack
 
 | Component | Technology |
 |---|---|
 | Platform | Cloudflare Workers |
 | Framework | [Hono v4.12](https://hono.dev) |
-| Database | [D1](https://developers.cloudflare.com/d1/) (Serverless SQLite) |
-| Cache | [Workers KV](https://developers.cloudflare.com/kv/) |
-| Language | TypeScript 7.0 |
-| Auth | PBKDF2 (Web Crypto API) |
-| Entry Point | `src/index.ts` |
+| Database | [D1](https://developers.cloudflare.com/d1/) (serverless SQLite) |
+| Cache / sessions / images | [Workers KV](https://developers.cloudflare.com/kv/) |
+| Language | TypeScript |
+| Auth | PBKDF2 via Web Crypto |
+| Entry point | `src/index.ts` |
 
-**One runtime dependency** — `hono` (router). Content is authored as rich text in a `contentEditable` editor and sanitized by a built-in allowlist HTML sanitizer (`src/cms/sanitize.ts`) on both write and read — no markdown parser, no DOMPurify.
-
----
-
-## Plugin System
-
-PHCloud uses a **GitHub-based plugin marketplace**:
-
-```
-Developer → Creates plugin → Publishes on GitHub
-                ↓
-Site Owner → Downloads .ts file → Adds to fork → Commits → Enables in admin
-```
-
-See [`PLUGIN_DEV.md`](./PLUGIN_DEV.md) and [`PLUGIN_STARTER.md`](./PLUGIN_STARTER.md).
-
----
-
-## Themes
-
-PHCloud uses a **single static theme file** at `src/themes/default.ts`. Themes are not plugins — there's no runtime registry. The theme is compiled into the Worker.
-
-The theme exports CSS and a layout preset:
-
-```typescript
-export const layout = 'centered'; // 'centered' | 'sidebar-left' | 'wide'
-export const css = `...`;
-```
-
-- **Light/dark mode** is automatic via `@media (prefers-color-scheme: dark)` — no toggle
-- **Reskin** by editing `src/themes/default.ts` — change palette colors in `:root`, commit, push
-- **Swap themes** by changing the import in `src/index.ts` to point at a different theme file
-
-See [`THEMES.md`](./THEMES.md) for full theming documentation.
+**One runtime dependency**: `hono` (the router). No markdown parser, no DOMPurify, no client framework — content is authored in a `contentEditable` editor and sanitized by the built-in allowlist tokenizer.
 
 ---
 
 ## FAQ / Troubleshooting
 
-### "I see a setup screen again and 'Cannot read properties of undefined (reading batch)'"
+### I see the setup screen again, or "Cannot read properties of undefined (reading 'batch')"
 
-Your D1 binding is missing. This happens if you deployed without bindings in `wrangler.toml` — Workers Builds wipes dashboard bindings that aren't in the config file.
+Your D1 binding is missing or wrong. This happens if you deployed before putting real IDs in `wrangler.toml` — Workers Builds wipes dashboard bindings that aren't in the config file.
 
-**Fix:** Edit `wrangler.toml` in your fork with your D1 database ID and KV namespace ID (Step 4), commit, and push. Workers Builds redeploys automatically.
+**Fix:** put your D1 database ID and KV namespace ID into `wrangler.toml` (step 4), commit to `main`, and let it redeploy.
 
-### "I see a 500 error"
+### I get a 500
 
-Check your `wrangler.toml` has valid D1 and KV IDs. Verify the databases actually exist in the dashboard.
+Check that `wrangler.toml` has valid D1 and KV IDs and that both resources still exist in the dashboard. Deleting either will break the Worker.
 
-### "The homepage still shows old content after publishing"
+### The homepage still shows old content after I publish
 
-The homepage is cached in KV for 60 seconds. Wait a moment or publish another post to bust the cache (fixed in latest commit).
+The published-posts cache lives in KV for ~10 minutes, but publishing/editing/deleting **invalidates it immediately** (`cms:posts:pub`, `cms:homepage`). If you're still seeing stale content, hard-refresh — the browser may be holding the old page.
 
-### "How do I change my site name?"
+### How do I change my site name?
 
-In the D1 console: `UPDATE settings SET value = 'New Name' WHERE key = 'site_name';`
+In the D1 console, or via the admin **Settings** page.
 
-### "How do I reset my admin password?"
+### How do I reset my admin password?
 
-In the D1 console:
 ```sql
 DELETE FROM admins;
 DELETE FROM settings WHERE key = 'status';
 ```
-Then visit your site — the wizard reappears.
 
-### "How do I delete my site?"
+Then visit the site — the onboarding wizard reappears so you can recreate the admin account.
 
-Delete the Worker, D1 database, and KV namespace from their respective dashboard pages.
+### How do I wipe and start over?
+
+The admin has a wipe endpoint that drops all content. To fully decommission: delete the Worker, the D1 database, and the KV namespace from their dashboard pages.
 
 ---
 
 ## License
 
-**MIT** — Build something awesome.
+**MIT** — build something awesome with it.
 
 ---
 
-**PHCloud CMS** — Built for the edge. Free forever.
-
-_Made with ☁️ on Cloudflare Workers_
+**PHCloud CMS** — built for the edge, free forever on the Cloudflare free tier.
