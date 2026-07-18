@@ -1,16 +1,12 @@
-// src/routes/wipe.ts — emergency reset.
+// src/routes/wipe.ts — "Reset Site" / start over.
 // Empties every D1 data table (keeping the schema) and flushes ALL KV, so a
-// stuck or broken install can start over cleanly: the onboarding guard re-shows
-// the install wizard (settings.status is gone, cms:settings cache is gone),
-// the user recreates an admin, and is logged in fresh.
+// site can start over cleanly: the onboarding guard re-shows the install
+// wizard (settings.status + its cms:settings cache are gone), the user
+// recreates an admin, and is logged in fresh.
 //
-// Authorization — EITHER of:
-//   1. A valid admin session cookie (requireAuth). Use this when you can still
-//      log in: `fetch('/api/admin/wipe',{method:'POST'})` from the browser.
-//   2. A bearer token matching the WIPE_TOKEN Worker secret, sent as
-//      `Authorization: Bearer <token>`. Use this when you're locked OUT (stale
-//      session / corrupted admin row) and can't reach any authed endpoint.
-// Both paths are checked so the endpoint is never open to the public.
+// Authorization: a valid admin session (requireAuth). This is reached from the
+// "Reset Site" button in the Settings admin page, not a token/secret, so any
+// logged-in admin can use it with nothing to configure. Never public.
 
 import { requireAuth } from "../cms/auth.js";
 import { App } from "../cms/env.js";
@@ -18,14 +14,8 @@ import { migrate } from "../cms/d1.js";
 
 export function registerWipeRoute(app: App): void {
   app.post("/api/admin/wipe", async (c) => {
-    // Token path first — works with no session at all.
-    const token = c.env.WIPE_TOKEN;
-    const bearer = c.req.header("Authorization") ?? "";
-    if (!token || bearer !== `Bearer ${token}`) {
-      // Otherwise require a live admin session.
-      const auth = await requireAuth(c);
-      if (auth instanceof Response) return auth;
-    }
+    const auth = await requireAuth(c);
+    if (auth instanceof Response) return auth;
 
     const db = c.env.DB;
     // Ensure every table exists first (no-op if present), then empty them.
@@ -63,3 +53,4 @@ export function registerWipeRoute(app: App): void {
     return c.json({ ok: true, reset: true });
   });
 }
+

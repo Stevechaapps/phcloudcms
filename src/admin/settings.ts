@@ -13,6 +13,14 @@ export function settingsBody(): string {
 <button type="submit" class="btn btn-primary">Save Settings</button>
 <div id="status" style="margin-top:1rem;font-size:0.9rem" aria-live="polite" role="status"></div>
 </form>
+
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:2.5rem 0" />
+<div style="max-width:600px;border:1px solid #fca5a5;background:#fef2f2;border-radius:6px;padding:1.25rem">
+<h3 style="color:#b91c1c;margin-bottom:0.5rem">Reset Site</h3>
+<p style="color:#64748b;font-size:0.9rem;margin-bottom:1rem">Erases all posts, pages, tags, images, settings, and admin accounts, then returns you to the setup wizard. This cannot be undone.</p>
+<button type="button" id="resetBtn" class="btn" style="background:#dc2626;color:white">Reset & Start Over</button>
+<span id="resetStatus" style="margin-left:0.75rem;font-size:0.9rem"></span>
+</div>
 <script>
 fetch('/api/admin/settings').then(function(r){return r.json()}).then(function(s){
 document.getElementById('siteName').value=s.site_name;
@@ -51,5 +59,13 @@ function saveSettings(data,status){
 fetch('/api/admin/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(function(r){
 if(r.ok){status.style.color='#16a34a';status.textContent='Saved!';location.reload()}
 else{status.style.color='#dc2626';status.textContent='Error saving settings'}})}
+document.getElementById('resetBtn').addEventListener('click',function(){
+var s=document.getElementById('resetStatus');
+var typed=prompt('This will permanently erase ALL posts, pages, tags, images, settings, and admin accounts. Type RESET to confirm.');
+if(typed!=='RESET'){if(typed!==null){s.style.color='#dc2626';s.textContent='Cancelled — typed text did not match.'}return;}
+s.style.color='#2563eb';s.textContent='Resetting…';
+fetch('/api/admin/wipe',{method:'POST'}).then(function(r){
+if(r.ok){s.style.color='#16a34a';s.textContent='Reset complete. Loading setup wizard…';window.location.href='/';}
+else{s.style.color='#dc2626';s.textContent='Reset failed (are you still logged in?).';}}).catch(function(){s.style.color='#dc2626';s.textContent='Reset failed — check your connection.';})});
 </script>`;
 }
