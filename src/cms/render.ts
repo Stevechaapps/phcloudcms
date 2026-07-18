@@ -35,6 +35,20 @@ export function autoExcerpt(content: string): string {
 // ── Public page shell ──────────────────────────────────────────────
 const THEME_CSS = themeCss;
 
+// Light/dark toggle. The public site adapts to the OS color scheme via a
+// @media(prefers-color-scheme:dark) block in the theme CSS, AND offers a
+// manual override stored in localStorage('phcloud-theme'). THEME_INIT_SCRIPT
+// runs in <head> before paint so there's no flash of the wrong theme; the
+// attribute it sets (html[data-theme="dark"|"light"]) is what the theme CSS
+// selectors key off of. THEME_TOGGLE_SCRIPT (end of <body>) wires the button,
+// keeps its glyph/aria in sync, and persists the choice.
+export const THEME_INIT_SCRIPT = `<script>(function(){try{var t=localStorage.getItem('phcloud-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark')}else if(t==='light'){document.documentElement.setAttribute('data-theme','light')}}catch(e){}})();</script>`;
+
+export const THEME_TOGGLE_BTN =
+  '<button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle color theme" aria-pressed="false">☾</button>';
+
+export const THEME_TOGGLE_SCRIPT = `<script>(function(){var d=document.documentElement,b=document.getElementById('theme-toggle');if(!b)return;function dark(){var t=d.getAttribute('data-theme');if(t==='dark')return true;if(t==='light')return false;return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)}function render(){var on=dark();b.setAttribute('aria-pressed',on?'true':'false');b.setAttribute('aria-label',on?'Switch to light mode':'Switch to dark mode');b.textContent=on?'☀':'☾'}render();if(window.matchMedia){try{window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',render)}catch(e){}}b.addEventListener('click',function(){var next=dark()?'light':'dark';d.setAttribute('data-theme',next);try{localStorage.setItem('phcloud-theme',next)}catch(e){}render()})})();</script>`;
+
 export function shellFull(
   siteName: string,
   headMarkup: string,
@@ -54,14 +68,18 @@ export function shellFull(
     THEME_CSS +
     "</style>" +
     headMarkup +
+    THEME_INIT_SCRIPT +
     '</head><body><a href="#main" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0">Skip to content</a><header><div class="inner"><a href="/" class="site-name">' +
     esc(siteName) +
-    '</a><nav>' +
+    "</a><nav>" +
     navHtml +
+    THEME_TOGGLE_BTN +
     adminLink +
-    "</nav></div></header><main id=\"main\">" +
+    '</nav></div></header><main id="main">' +
     bodyHtml +
-    "</main><footer>Powered by PHCloud CMS on Cloudflare Workers</footer></body></html>"
+    "</main><footer>Powered by PHCloud CMS on Cloudflare Workers</footer>" +
+    THEME_TOGGLE_SCRIPT +
+    "</body></html>"
   );
 }
 
@@ -75,9 +93,9 @@ export function renderPost(post: Post): string {
   return (
     "<h1>" +
     esc(post.title) +
-    '</h1><div style="color:#64748b;font-size:0.85rem;margin-bottom:2rem;">' +
+    '</h1><div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:2rem;">' +
     date +
-    '</div><div style="line-height:1.8;">' +
+    '</div><div class="post-content">' +
     sanitizePostHtml(post.content) +
     "</div>"
   );
@@ -87,7 +105,7 @@ export function renderHomepage(siteName: string): string {
   return (
     "<h1>" +
     esc(siteName) +
-    '</h1><p style="color:#64748b;margin-bottom:2rem;">Welcome. Content served from Cloudflare D1.</p><p style="color:#64748b;"><a href="/admin/login">Log in</a> to manage your site.</p>'
+    '</h1><p style="color:var(--text-muted);margin-bottom:2rem;">Welcome. Content served from Cloudflare D1.</p><p style="color:var(--text-muted);"><a href="/admin/login">Log in</a> to manage your site.</p>'
   );
 }
 
@@ -107,24 +125,26 @@ export function renderPostList(
       day: "numeric",
     });
     html +=
-      '<article style="border-bottom:1px solid #e5e7eb;padding-bottom:1.5rem">';
+      '<article style="border-bottom:1px solid var(--border);padding-bottom:1.5rem">';
     html +=
       '<h2 style="font-size:1.15rem;margin-bottom:0.3rem"><a href="/' +
       esc(p.slug) +
-      '" style="color:#0f172a;text-decoration:none">' +
+      '" style="color:var(--text);text-decoration:none">' +
       esc(p.title) +
       "</a></h2>";
     html +=
-      '<div style="color:#94a3b8;font-size:0.8rem;margin-bottom:0.5rem">' +
+      '<div style="color:var(--text-muted);font-size:0.8rem;margin-bottom:0.5rem">' +
       date +
       "</div>";
     if (p.excerpt)
       html +=
-        '<p style="color:#64748b;line-height:1.6">' + esc(p.excerpt) + "</p>";
+        '<p style="color:var(--text-light);line-height:1.6">' +
+        esc(p.excerpt) +
+        "</p>";
     html +=
       '<a href="/' +
       esc(p.slug) +
-      '" style="color:#3b82f6;font-size:0.85rem;text-decoration:none">Read more →</a>';
+      '" style="color:var(--accent);font-size:0.85rem;text-decoration:none">Read more →</a>';
     html += "</article>";
   }
   html += "</div>";
@@ -150,31 +170,32 @@ export function renderPagination(
     html +=
       '<a href="' +
       esc(buildUrl(page - 1)) +
-      '" style="padding:0.4rem 0.8rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6">← Prev</a>';
+      '" style="padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:4px;text-decoration:none;color:var(--accent)">← Prev</a>';
   const startPage = Math.max(1, page - 2);
   const endPage = Math.min(totalPages, page + 2);
-  if (startPage > 1) html += '<span style="color:#94a3b8">…</span>';
+  if (startPage > 1) html += '<span style="color:var(--text-muted)">…</span>';
   for (let i = startPage; i <= endPage; i++) {
     if (i === page) {
       html +=
-        '<span style="padding:0.4rem 0.8rem;background:#0f172a;color:white;border-radius:4px;font-weight:600">' +
+        '<span style="padding:0.4rem 0.8rem;background:var(--accent);color:#fff;border-radius:4px;font-weight:600">' +
         i +
         "</span>";
     } else {
       html +=
         '<a href="' +
         esc(buildUrl(i)) +
-        '" style="padding:0.4rem 0.8rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6">' +
+        '" style="padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:4px;text-decoration:none;color:var(--accent)">' +
         i +
         "</a>";
     }
   }
-  if (endPage < totalPages) html += '<span style="color:#94a3b8">…</span>';
+  if (endPage < totalPages)
+    html += '<span style="color:var(--text-muted)">…</span>';
   if (page < totalPages)
     html +=
       '<a href="' +
       esc(buildUrl(page + 1)) +
-      '" style="padding:0.4rem 0.8rem;border:1px solid #e5e7eb;border-radius:4px;text-decoration:none;color:#3b82f6">Next →</a>';
+      '" style="padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:4px;text-decoration:none;color:var(--accent)">Next →</a>';
   html += "</nav>";
   return html;
 }
@@ -184,7 +205,10 @@ export function renderPagination(
 // sanitized HTML (see sanitize.ts); the sanitizer always emits double-quoted
 // src. We return an absolute URL: absolute http(s) as-is, relative (/img/:id)
 // with origin prefixed — anything else (data:, etc.) yields no card image.
-export function extractFirstImage(content: string, origin: string): string | null {
+export function extractFirstImage(
+  content: string,
+  origin: string,
+): string | null {
   const match = content.match(/<img\s[^>]*?src="([^"]*)"/i);
   if (!match) return null;
   const src = match[1];

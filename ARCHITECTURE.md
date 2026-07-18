@@ -2,6 +2,13 @@
 
 **The world's lightest CMS.** Running entirely on Cloudflare Workers free tier.
 
+> **Status — read this first.** This is an early *design plan*, kept for history; it is not a description of the current code. The shipped implementation diverges in several places:
+> - **Light/dark**: the public site has a header toggle (☾/☀) persisted in `localStorage('phcloud-theme')`, applied before paint — not "zero state / no JS toggle" as described below. The admin panel follows `prefers-color-scheme: dark` (not "light-theme only").
+> - **Dependencies**: `hono` is the only runtime dependency. There is no `marked` — content is authored in a `contentEditable` editor and run through a built-in allowlist sanitizer, not parsed from markdown.
+> - **Size/structure**: the file count and "~50KB" figure are from the original plan and are stale.
+>
+> Treat the rest of this document as original design intent, not current reality. See `README.md` for what's actually shipped.
+
 - Hono v4.12 (Workers runtime, not Node)
 - TypeScript 7.0, strict
 - Cloudflare D1 (SQLite) + KV

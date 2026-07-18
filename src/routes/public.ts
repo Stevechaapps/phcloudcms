@@ -23,7 +23,10 @@ import {
 
 // Publish any posts whose scheduled publish_at has passed. Cheap KV gate
 // so the catch-all doesn't run the UPDATE more than once a minute.
-async function publishScheduled(db: D1Database, cache?: KVNamespace): Promise<void> {
+async function publishScheduled(
+  db: D1Database,
+  cache?: KVNamespace,
+): Promise<void> {
   if (cache) {
     const lastRun = await cache.get("cms:lastScheduledPublish");
     if (lastRun && Date.now() - Number(lastRun) < 60000) return;
@@ -36,7 +39,9 @@ async function publishScheduled(db: D1Database, cache?: KVNamespace): Promise<vo
     .bind(now)
     .run();
   if (cache) {
-    await cache.put("cms:lastScheduledPublish", String(Date.now()), { expirationTtl: 120 });
+    await cache.put("cms:lastScheduledPublish", String(Date.now()), {
+      expirationTtl: 120,
+    });
   }
 }
 
@@ -50,7 +55,9 @@ export function registerPublicRoutes(app: App): void {
       const rows = await db
         .prepare("SELECT id, active FROM plugins")
         .all<{ id: string; active: number }>();
-      return Object.fromEntries(rows.results.map((p) => [p.id, p.active === 1]));
+      return Object.fromEntries(
+        rows.results.map((p) => [p.id, p.active === 1]),
+      );
     });
 
     const isSitemapActive = activePlugins.sitemap === true;
@@ -84,7 +91,12 @@ export function registerPublicRoutes(app: App): void {
   // ── RSS feed ──────────────────────────────────────────────────────
   app.get("/feed.xml", async (c) => {
     const db = c.env.DB;
-    const settings = await getCached(c, "cms:settings", 600, async () => await getAllSettings(db)) as Record<string, string>;
+    const settings = (await getCached(
+      c,
+      "cms:settings",
+      600,
+      async () => await getAllSettings(db),
+    )) as Record<string, string>;
     const siteName = settings.site_name ?? "My Site";
     const posts = await db
       .prepare(
@@ -117,7 +129,12 @@ export function registerPublicRoutes(app: App): void {
   app.get("/search", async (c) => {
     const q = c.req.query("q") ?? "";
     const db = c.env.DB;
-    const settings = await getCached(c, "cms:settings", 600, async () => await getAllSettings(db)) as Record<string, string>;
+    const settings = (await getCached(
+      c,
+      "cms:settings",
+      600,
+      async () => await getAllSettings(db),
+    )) as Record<string, string>;
     const siteName = settings.site_name ?? "My Site";
     const seoDescription = settings.seo_description ?? "";
     const safeQ = q.replace(/%/g, "\\%").replace(/_/g, "\\_");
@@ -126,7 +143,7 @@ export function registerPublicRoutes(app: App): void {
     bodyHtml +=
       '<form action="/search" method="get" role="search" style="margin-bottom:2rem"><label for="search-input" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0">Search</label><input type="text" id="search-input" name="q" value="' +
       esc(q) +
-      '" placeholder="Search posts…" style="width:100%;padding:0.65rem;border:1px solid #cbd5e1;border-radius:4px;font-size:1rem" /><button type="submit" style="margin-top:0.5rem;padding:0.5rem 1rem;background:#0f172a;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.9rem">Search</button></form>';
+      '" placeholder="Search posts…" style="width:100%;padding:0.65rem;border:1px solid var(--border);border-radius:4px;font-size:1rem" /><button type="submit" style="margin-top:0.5rem;padding:0.5rem 1rem;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.9rem">Search</button></form>';
 
     if (q) {
       const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10));
@@ -155,14 +172,20 @@ export function registerPublicRoutes(app: App): void {
         bodyHtml += renderPagination(page, totalPages, "/search", { q });
       } else {
         bodyHtml +=
-          '<p style="color:#64748b">No results found for "' + esc(q) + '"</p>';
+          '<p style="color:var(--text-muted)">No results found for "' +
+          esc(q) +
+          '"</p>';
       }
     }
 
     const registry = new CMSRegistry();
     const activePlugins = await getCached(c, "cms:plugins", 300, async () => {
-      const rows = await db.prepare("SELECT id, active FROM plugins").all<{ id: string; active: number }>();
-      return Object.fromEntries(rows.results.map((p) => [p.id, p.active === 1]));
+      const rows = await db
+        .prepare("SELECT id, active FROM plugins")
+        .all<{ id: string; active: number }>();
+      return Object.fromEntries(
+        rows.results.map((p) => [p.id, p.active === 1]),
+      );
     });
     initActivePlugins(registry, activePlugins);
     const headPayload = await registry.executePipeline("render:head", {
@@ -195,10 +218,7 @@ export function registerPublicRoutes(app: App): void {
         404,
       );
 
-    const page = Math.max(
-      1,
-      parseInt(c.req.query("page") ?? "1", 10),
-    );
+    const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10));
     const countRow = await db
       .prepare(
         "SELECT COUNT(*) as total FROM posts p JOIN post_tags pt ON p.id = pt.post_id WHERE pt.tag_id = ? AND p.published = 1 AND p.type = 'post'",
@@ -229,12 +249,16 @@ export function registerPublicRoutes(app: App): void {
       "</h1>" +
       (rows.results.length
         ? renderPostList(rows.results, "")
-        : '<p style="color:#64748b">No posts with this tag.</p>') +
+        : '<p style="color:var(--text-muted)">No posts with this tag.</p>') +
       renderPagination(page, totalPages, "/tag/" + esc(tagSlug), {});
     const registry = new CMSRegistry();
     const activePlugins = await getCached(c, "cms:plugins", 300, async () => {
-      const rows = await db.prepare("SELECT id, active FROM plugins").all<{ id: string; active: number }>();
-      return Object.fromEntries(rows.results.map((p) => [p.id, p.active === 1]));
+      const rows = await db
+        .prepare("SELECT id, active FROM plugins")
+        .all<{ id: string; active: number }>();
+      return Object.fromEntries(
+        rows.results.map((p) => [p.id, p.active === 1]),
+      );
     });
     initActivePlugins(registry, activePlugins);
     const headPayload = await registry.executePipeline("render:head", {
@@ -262,11 +286,25 @@ export function registerPublicRoutes(app: App): void {
     await publishScheduled(db, c.env.CACHE);
 
     const [settings, navVal, plugins] = await Promise.all([
-      getCached(c, "cms:settings", 600, async () => await getAllSettings(db)) as Promise<Record<string, string>>,
-      getCached(c, "cms:nav", 600, async () => (await getSetting(db, "nav")) ?? "[]") as Promise<string>,
+      getCached(
+        c,
+        "cms:settings",
+        600,
+        async () => await getAllSettings(db),
+      ) as Promise<Record<string, string>>,
+      getCached(
+        c,
+        "cms:nav",
+        600,
+        async () => (await getSetting(db, "nav")) ?? "[]",
+      ) as Promise<string>,
       getCached(c, "cms:plugins", 300, async () => {
-        const rows = await db.prepare("SELECT id, active FROM plugins").all<{ id: string; active: number }>();
-        return Object.fromEntries(rows.results.map((p) => [p.id, p.active === 1]));
+        const rows = await db
+          .prepare("SELECT id, active FROM plugins")
+          .all<{ id: string; active: number }>();
+        return Object.fromEntries(
+          rows.results.map((p) => [p.id, p.active === 1]),
+        );
       }) as Promise<Record<string, boolean>>,
     ]);
 
@@ -274,7 +312,12 @@ export function registerPublicRoutes(app: App): void {
     const seoDescription = settings.seo_description ?? "";
     const siteLogo = settings.site_logo ?? null;
     let nav: NavItem[];
-    try { const p = JSON.parse(navVal); nav = Array.isArray(p) ? p : []; } catch { nav = []; }
+    try {
+      const p = JSON.parse(navVal);
+      nav = Array.isArray(p) ? p : [];
+    } catch {
+      nav = [];
+    }
 
     initActivePlugins(registry, plugins);
 
@@ -333,13 +376,13 @@ export function registerPublicRoutes(app: App): void {
           .all<{ name: string; slug: string }>();
         const tags = tagRows.results;
         const tagsHtml = tags.length
-          ? '<div style="color:#94a3b8;font-size:0.8rem;margin-bottom:1rem">' +
+          ? '<div style="color:var(--text-muted);font-size:0.8rem;margin-bottom:1rem">' +
             tags
               .map(
                 (t) =>
                   '<a href="/tag/' +
                   esc(t.slug) +
-                  '" style="color:#3b82f6;text-decoration:none">' +
+                  '" style="color:var(--accent);text-decoration:none">' +
                   esc(t.name) +
                   "</a>",
               )
@@ -347,7 +390,7 @@ export function registerPublicRoutes(app: App): void {
             "</div>"
           : "";
         bodyHtml =
-          '<p style="margin-bottom:2rem"><a href="/" style="color:#3b82f6;text-decoration:none">← Back to home</a></p>' +
+          '<p style="margin-bottom:2rem"><a href="/" style="color:var(--accent);text-decoration:none">← Back to home</a></p>' +
           renderPost(post) +
           tagsHtml;
       }
@@ -362,7 +405,9 @@ export function registerPublicRoutes(app: App): void {
           title: post.title,
           description: post.excerpt ?? "",
           url: origin + c.req.path,
-          image: extractFirstImage(post.content, origin) ?? (siteLogo ? origin + siteLogo : ""),
+          image:
+            extractFirstImage(post.content, origin) ??
+            (siteLogo ? origin + siteLogo : ""),
         },
       });
       const bodyPayload = await registry.executePipeline("render:body", {

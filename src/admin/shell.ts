@@ -48,6 +48,11 @@ export function adminShell(title: string, bodyHtml: string): string {
     ".row{display:flex;gap:1rem}",
     ".row .form-group{flex:1}",
     "@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{display:none}.topbar{flex-wrap:wrap;height:auto;padding:0.5rem 1rem}.topbar .toplinks{display:flex;flex-wrap:wrap;gap:0.4rem;width:100%;justify-content:center;margin-top:0.4rem;font-size:0.75rem}.topbar .actions{margin-left:auto}table{font-size:0.8rem}th,td{padding:0.4rem 0.5rem}}",
+    // Dark mode: the admin follows the OS color scheme. No manual toggle in
+    // the admin (only the public site has one); the topbar is already dark so
+    // it works in both. Surfaces, inputs, toolbar, sidebar, buttons, table
+    // borders flip to the same slate palette the public dark theme uses.
+    '@media(prefers-color-scheme:dark){body{background:#0f172a;color:#f1f5f9}.sidebar{background:#1e293b;border-right-color:#334155}.sidebar a{color:#e2e8f0}.sidebar a:hover{background:#334155}th,td{border-bottom-color:#334155}th{color:#94a3b8}.content a{color:#f97316}.toolbar{background:#1e293b;border-color:#334155}.toolbar button{color:#94a3b8}.toolbar button:hover{background:#334155;color:#f1f5f9}.rte{background:#1e293b;color:#f1f5f9;border-color:#475569}.rte code{background:#334155}.rte blockquote{border-color:#475569;color:#94a3b8}input[type="text"],input[type="password"],input[type="search"],input[type="email"],input[type="number"],input[type="url"],input[type="datetime-local"],input[type="date"],textarea{background:#1e293b;color:#f1f5f9;border-color:#475569}.btn-sm{background:#1e293b;border-color:#475569;color:#f1f5f9}.btn-primary{background:#f97316;color:#fff}}',
   ].join(" ");
 
   return `<!DOCTYPE html>

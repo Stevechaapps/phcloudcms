@@ -55,7 +55,7 @@ It is deliberately small: one Hono app, one router, one dependency. There is no 
 | **Search** | Full-text search at `/search?q=…` |
 | **RSS feed** | Auto-generated at `/feed.xml` |
 | **XML sitemap** | Auto-generated at `/sitemap.xml` |
-| **Themes** | One static theme file (`src/themes/default.ts`) compiled into the Worker; light/dark mode automatic via `prefers-color-scheme` |
+| **Themes** | One static theme file (`src/themes/default.ts`) compiled into the Worker; automatic light/dark via `prefers-color-scheme` plus a header toggle that remembers your choice |
 | **Plugins** | Hooks-based TypeScript plugins. Built-in: SEO, Sitemap, Tag Cloud |
 | **Onboarding wizard** | First-run setup in the browser — creates your admin account and seeds defaults |
 | **Auth** | PBKDF2 password hashing (Web Crypto, 100k iterations), HTTP-only cookies, KV-backed sessions |
@@ -226,7 +226,7 @@ export const layout = 'centered';   // reserved — only 'centered' is implement
 export const css = `…`;
 ```
 
-- **Light/dark** is automatic via `@media (prefers-color-scheme: dark)` — no toggle.
+- **Light/dark** is automatic via `@media (prefers-color-scheme: dark)`, plus a header toggle (☾/☀) that overrides the OS preference and is remembered in `localStorage('phcloud-theme')`. A small inline script in `<head>` applies the saved choice before paint so there's no flash of the wrong theme. The admin panel follows the OS scheme too (`prefers-color-scheme: dark`); the login page is dark in both modes.
 - **Reskin** by editing `:root` colors in `src/themes/default.ts`, then commit + push.
 - **Swap** by pointing the import in `src/cms/render.ts` at a different theme file.
 

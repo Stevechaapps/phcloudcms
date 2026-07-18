@@ -16,7 +16,7 @@ export const css = `...`;
 
 ## Light & Dark Mode
 
-The CSS includes a `@media (prefers-color-scheme: dark)` block that overrides the CSS custom properties on `:root`. This means dark mode is automatic based on the user's OS preference — no toggle needed.
+The CSS includes a `@media (prefers-color-scheme: dark)` block that overrides the CSS custom properties on `:root`, so dark mode is automatic based on the user's OS preference. On top of that, a header toggle (☾/☀) lets a reader override the OS choice; the override is stored in `localStorage('phcloud-theme')` and applied before paint via a small inline script in `<head>` (no flash of the wrong theme). The admin panel follows `prefers-color-scheme: dark` too.
 
 ## CSS Custom Properties
 
