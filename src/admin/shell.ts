@@ -9,6 +9,11 @@ export function adminShell(title: string, bodyHtml: string): string {
     ".topbar{background:#0f172a;color:white;padding:0 2rem;height:52px;display:flex;align-items:center;justify-content:space-between}",
     ".topbar a{color:rgba(255,255,255,0.7);text-decoration:none;font-size:0.85rem}",
     ".topbar a:hover{color:white}",
+    ".topbar .actions{display:flex;align-items:center;gap:0.75rem}",
+    // Desktop: sidebar is the nav — hide the topbar link list so we don't
+    // show the same 9 links twice. (Shown on mobile in the @media block below,
+    // where the sidebar is display:none and we'd otherwise have no nav.)
+    ".topbar .toplinks{display:none}",
     ".layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 52px)}",
     ".sidebar{background:white;border-right:1px solid #e5e7eb;padding:1.5rem 0}",
     ".sidebar a{display:block;padding:0.5rem 1.5rem;color:#1a1a1a;text-decoration:none;font-size:0.9rem}",
@@ -28,6 +33,10 @@ export function adminShell(title: string, bodyHtml: string): string {
     ".toolbar{display:flex;gap:2px;padding:0.5rem;background:#f8fafc;border:1px solid #e2e8f0;border-bottom:none;border-radius:5px 5px 0 0;flex-wrap:wrap;margin-bottom:0}",
     ".toolbar button{background:none;border:none;padding:0.3rem 0.55rem;border-radius:3px;cursor:pointer;font-size:0.8rem;color:#475569;font-weight:500}",
     ".toolbar button:hover{background:#e2e8f0;color:#1e293b}",
+    // Active toolbar state: rteSync() sets aria-pressed on the button whose
+    // command matches the current selection. Placed after :hover so it wins
+    // the specificity tie and the pressed look survives hover.
+    '.toolbar button[aria-pressed="true"]{background:#0f172a;color:white}',
     ".toolbar .sep{width:1px;background:#e2e8f0;margin:0 0.25rem}",
     ".rte{min-height:300px;padding:0.65rem;border:1px solid #cbd5e1;border-radius:4px;font-size:1rem;line-height:1.7;overflow-y:auto;outline:none}",
     ".rte:focus{border-color:#3b82f6}.rte:empty:before{content:attr(data-ph);color:#94a3b8}",
@@ -38,7 +47,7 @@ export function adminShell(title: string, bodyHtml: string): string {
     "textarea{min-height:320px;font-family:monospace;font-size:0.9rem;line-height:1.5}",
     ".row{display:flex;gap:1rem}",
     ".row .form-group{flex:1}",
-    "@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{display:none}.topbar nav{flex-wrap:wrap;gap:0.5rem;font-size:0.75rem}table{font-size:0.8rem}th,td{padding:0.4rem 0.5rem}}",
+    "@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{display:none}.topbar{flex-wrap:wrap;height:auto;padding:0.5rem 1rem}.topbar .toplinks{display:flex;flex-wrap:wrap;gap:0.4rem;width:100%;justify-content:center;margin-top:0.4rem;font-size:0.75rem}.topbar .actions{margin-left:auto}table{font-size:0.8rem}th,td{padding:0.4rem 0.5rem}}",
   ].join(" ");
 
   return `<!DOCTYPE html>
@@ -52,7 +61,11 @@ export function adminShell(title: string, bodyHtml: string): string {
 <body>
 <div class="topbar">
 <strong>PHCloud CMS</strong>
-<nav aria-label="Top navigation">
+<nav class="actions" aria-label="Site actions">
+<a href="/" target="_blank" rel="noopener">View Site ↗</a>
+<button type="button" onclick="logout()" style="background:transparent;border:none;color:#f87171;cursor:pointer;font-size:0.85rem">Logout</button>
+</nav>
+<nav class="toplinks" aria-label="Admin navigation">
 <a href="/admin">Dashboard</a>
 <a href="/admin/posts">Posts</a>
 <a href="/admin/pages">Pages</a>
@@ -62,8 +75,6 @@ export function adminShell(title: string, bodyHtml: string): string {
 <a href="/admin/tags">Tags</a>
 <a href="/admin/nav">Navigation</a>
 <a href="/admin/settings">Settings</a>
-<a href="/" style="margin-left:1rem">View Site</a>
-<button type="button" onclick="logout()" style="margin-left:1rem;background:transparent;border:none;color:#f87171;cursor:pointer;font-size:0.85rem">Logout</button>
 </nav>
 </div>
 <div class="layout">

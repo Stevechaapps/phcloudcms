@@ -29,3 +29,8 @@ npm-debug.log*
 # Testing
 coverage/
 .aider*
+
+# UX verification scratch (local harness, regenerated each run)
+_ux-check.ts
+_ux-check-bundle.mjs
+_ux-editor-snippet.mjs

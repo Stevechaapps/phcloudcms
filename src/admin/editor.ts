@@ -20,7 +20,17 @@ function rteHead(h){document.execCommand('formatBlock',false,h)}
 function rteLink(e){e.preventDefault();var u=prompt('Link URL:','https://');if(u)document.execCommand('createLink',false,u)}
 function rteImg(e){e.preventDefault();var u=prompt('Image URL:','');if(u)document.execCommand('insertImage',false,u)}
 function rteSave(c){try{return window.getSelection().getRangeAt(0).cloneRange()}catch(x){var r=document.createRange();r.selectNodeContents(c);r.collapse(false);return r}}
-function rteRestore(c,r){c.focus();var s=window.getSelection();s.removeAllRanges();s.addRange(r)}`;
+function rteRestore(c,r){c.focus();var s=window.getSelection();s.removeAllRanges();s.addRange(r)}
+// Reflect the selection's formatting back onto the toolbar buttons so the user
+// can tell what's active (Bold/Italic pressed, current block is h2/h3/blockquote,
+// caret is in a list). aria-pressed + the .toolbar button[aria-pressed="true"]
+// rule in shell.ts give the visual "on" state every WYSIWYG editor shows.
+function rteSync(){var c=document.getElementById('content');if(!c)return;var node=null;try{node=window.getSelection().getRangeAt(0).startContainer}catch(e){}if(!node||(node!==c&&!c.contains(node))){rteClear();return}rteSet('Bold',qState('bold'));rteSet('Italic',qState('italic'));rteSet('Insert list item',qState('insertUnorderedList'));var blk=String(qVal('formatBlock')||'').toLowerCase().replace(/[<>]/g,'');rteSet('Heading 2',blk==='h2');rteSet('Heading 3',blk==='h3');rteSet('Insert blockquote',blk==='blockquote')}
+function qState(c){try{return document.queryCommandState(c)}catch(e){return false}}
+function qVal(c){try{return document.queryCommandValue(c)}catch(e){return ''}}
+function rteSet(label,on){var b=document.querySelector('.toolbar button[aria-label="'+label+'"]');if(!b)return;b.setAttribute('aria-pressed',on?'true':'false')}
+function rteClear(){var bs=document.querySelectorAll('.toolbar button[aria-pressed]');for(var i=0;i<bs.length;i++)bs[i].setAttribute('aria-pressed','false')}
+document.addEventListener('selectionchange',rteSync)`;
 
 // Paste an image into #content -> resize on canvas (MAX_W=1200) -> upload to
 // /api/admin/images -> insert <img> at the caret. The caret range is saved
