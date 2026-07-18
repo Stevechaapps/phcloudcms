@@ -4,7 +4,7 @@
 
 import { Context, Next } from 'hono';
 import { CMSRegistry } from './registry.js';
-import { getSetting, isConfigured } from './d1.js';
+import { getSetting, isConfigured, ensureSchema } from './d1.js';
 
 // Env is defined once in ./env.ts and re-exported here so existing
 // import paths (`from "./cms/middleware.js"`) keep working.
@@ -19,6 +19,12 @@ export async function onboardingGuard(c: Context, next: Next): Promise<Response 
   if (path === '/api/install' || path === '/health' || path.startsWith('/_next') || path.match(/\.(css|js|png|ico|svg)$/)) {
     return next();
   }
+
+  // Self-heal schema: add any columns/tables an older install is missing
+  // (e.g. posts.publish_at). Runs once per SCHEMA_VERSION via a KV flag, so
+  // it's nearly free after the first request. Must run before isConfigured(),
+  // which reads the `settings` table that migrate() may need to (re)create.
+  await ensureSchema(c.env.DB, c.env.CACHE);
 
   try {
     const configured = await isConfigured(c.env.DB);

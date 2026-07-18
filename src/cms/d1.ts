@@ -173,3 +173,22 @@ export async function getAllSettings(db: D1Database): Promise<Record<string, str
 export async function isConfigured(db: D1Database): Promise<boolean> {
   return (await getSetting(db, 'status')) === 'configured';
 }
+
+// Bump when the schema gains columns/tables that EXISTING installs must pick
+// up via migrate(). The onboarding guard calls ensureSchema() once per version
+// (gated by a KV flag), so a site installed under an older deploy — whose
+// `posts` table predates columns like publish_at/type/preview_token added by
+// ALTER — gets them added the first time the new code serves a request,
+// without a re-install or wrangler. migrate() is idempotent so this is safe.
+export const SCHEMA_VERSION = "v2";
+
+export async function ensureSchema(db: D1Database, cache: KVNamespace): Promise<void> {
+  const flag = `schema:${SCHEMA_VERSION}`;
+  try {
+    if ((await cache.get(flag)) === "1") return;
+    await migrate(db);
+    await cache.put(flag, "1", { expirationTtl: 30 * 24 * 60 * 60 });
+  } catch {
+    // best-effort; route handlers still surface real binding errors
+  }
+}
