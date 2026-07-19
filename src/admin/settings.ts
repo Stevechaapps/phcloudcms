@@ -9,7 +9,7 @@ export function settingsBody(): string {
 <label>Site Logo</label>
 <div id="logoPreview" style="margin-bottom:0.5rem"></div>
 <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
-<p style="color:var(--ad-muted);font-size:0.8rem;margin-top:0.4rem">Recommended: a wide, short logo (about <strong>600×200px</strong>, PNG with transparency). Shown in your site header and as the social-share image. Shrunk to 600px wide; use a wider banner for the social preview.</p>
+<p style="color:var(--ad-muted);font-size:0.8rem;margin-top:0.4rem">Recommended: a wide, short logo (about <strong>600×200px</strong>, PNG with transparency). Shrunk to 600px wide if larger; a wider banner works better for the social-share image. Flat logos stay lossless PNG (crisp + small); photo-like logos compress to WebP. Transparency kept.</p>
 </div>
 <button type="submit" class="btn btn-primary">Save Settings</button>
 <div id="status" style="margin-top:1rem;font-size:0.9rem" aria-live="polite" role="status"></div>
@@ -46,13 +46,21 @@ var c=document.createElement('canvas');
 c.width=w;c.height=h;
 var ctx=c.getContext('2d');
 ctx.drawImage(img,0,0,w,h);
+// Flat logos (text/shapes, transparency) stay crisp + small as lossless PNG;
+// photo-like logos and JPEGs compress to lossy WebP q0.7. Heuristic: count
+// distinct colors on the downscaled canvas — flat art has a few thousand or
+// fewer, photos run into the tens of thousands. Counting pixels is cheap at
+// 600px wide. (ponytail: color-count heuristic; misclassifies a noisy-but-
+// flat logo toward webp, only costs a little edge softness.)
+var outType='image/webp',outExt='webp';
+if((logoFile.type||'')==='image/png'){try{var px=ctx.getImageData(0,0,w,h).data;var seen=Object.create(null),n=0;for(var i=0;i<px.length;i+=4){var k=px[i]+','+px[i+1]+','+px[i+2]+','+px[i+3];if(!seen[k]){seen[k]=1;if(++n>=5000)break}}if(n<5000){outType='image/png';outExt='png'}}catch(e){}}
 c.toBlob(function(blob){
 var r2=new FileReader();
 r2.onload=function(ev2){
-fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:ev2.target.result,filename:'logo.webp'})}).then(function(r){return r.json()}).then(function(res){
+fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:ev2.target.result,filename:'logo.'+outExt})}).then(function(r){return r.json()}).then(function(res){
 if(res.url){data.site_logo=res.url;saveSettings(data,status)}
 else{status.style.color='#dc2626';status.textContent='Logo upload failed'}})};
-r2.readAsDataURL(blob)},'image/webp',0.7)};
+r2.readAsDataURL(blob)},outType,0.7)};
 img.src=ev.target.result};
 reader.readAsDataURL(logoFile)}
 else{saveSettings(data,status)}});

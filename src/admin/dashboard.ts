@@ -13,7 +13,7 @@ export function dashboardBody(): string {
 </div>
 <div style="background:var(--ad-card);border:1px solid var(--ad-card-bd);border-radius:6px;padding:1rem">
 <div style="font-size:0.75rem;color:var(--ad-muted);text-transform:uppercase;letter-spacing:0.05em">Setup</div>
-<div style="font-size:0.85rem;color:#16a34a;margin-top:0.5rem">✓ Configured</div>
+<div style="font-size:0.85rem;color:var(--ad-ok);margin-top:0.5rem">✓ Configured</div>
 </div>
 </div>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
