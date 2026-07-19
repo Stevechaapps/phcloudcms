@@ -59,13 +59,6 @@ export function shellFull(
     .map((n) => '<a href="' + esc(n.url) + '">' + esc(n.label) + "</a>")
     .join("");
 
-  const searchForm = `
-    <form action="/search" method="get" class="search-wrap" role="search">
-      <input type="text" name="q" placeholder="Search..." aria-label="Search site">
-    </form>`;
-
-  const adminLink = '<a href="/admin/login" style="color:var(--accent);font-weight:600">Admin</a>';
-
   return (
     '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>' +
     esc(siteName) +
@@ -78,16 +71,14 @@ export function shellFull(
     THEME_INIT_SCRIPT +
     '</head><body><a href="#main" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0">Skip to content</a><header><div class="inner"><a href="/" class="site-name">' +
     esc(siteName) +
-    '</a><nav>' +
-    searchForm +
+    '</a><nav><form action="/search" method="get" class="search-wrap" role="search"><input type="text" name="q" placeholder="Search..." aria-label="Search site"></form>' +
     navHtml +
     THEME_TOGGLE_BTN +
-    adminLink +
     '</nav></div></header><main id="main">' +
     bodyHtml +
     '</main><footer><div class="inner"><div class="brand"><strong>' +
     esc(siteName) +
-    '</strong><p>A minimalist publishing space.</p></div><div class="links"><div class="links-group"><span>Site</span><a href="/">Home</a><a href="/search">Search</a></div><div class="links-group"><span>Resources</span><a href="/feed.xml">RSS Feed</a><a href="/sitemap.xml">Sitemap</a></div><div class="links-group"><span>Credits</span><a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">PHCloud CMS</a></div></div></div></footer>' +
+    '</strong><p>A minimalist publishing space.</p></div><div class="links"><div class="links-group"><span>Site</span><a href="/">Home</a><a href="/search">Search</a></div><div class="links-group"><span>Resources</span><a href="/feed.xml">RSS Feed</a><a href="/sitemap.xml">Sitemap</a><a href="/admin/login">Admin</a></div><div class="links-group"><span>Credits</span><a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">PHCloud CMS</a></div></div></div></footer>' +
     THEME_TOGGLE_SCRIPT +
     '</body></html>'
   );
