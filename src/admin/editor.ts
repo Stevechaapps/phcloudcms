@@ -22,17 +22,28 @@ export const SCHEDULER_SCRIPT = `function phIso(localVal){if(!localVal)return nu
 // upload. Toolbar buttons call these from onmousedown (with preventDefault so
 // clicking a button never blurs the editable and drops the selection the
 // command acts on). (DOM: #content, a contenteditable div.)
-export const EDITOR_FORMAT_SCRIPTS = `function rteCmd(c){document.execCommand(c,false,null)}
-function rteHead(h){document.execCommand('formatBlock',false,h)}
-function rteLink(e){e.preventDefault();var u=prompt('Link URL:','https://');if(u)document.execCommand('createLink',false,u)}
+export const EDITOR_FORMAT_SCRIPTS = `function rteCmd(c){document.execCommand(c,false,null);rteSync()}
+function rteHead(h){document.execCommand('formatBlock',false,h);rteSync()}
+function rteEsc(s){return String(s).replace(/&/g,'&'+'amp;').replace(/</g,'&'+'lt;').replace(/>/g,'&'+'gt;').replace(/"/g,'&'+'quot;')}
+// Mirror of the server-side safeUrl so a javascript:/data: scheme can't even
+// enter the editor buffer (the server re-checks on write either way).
+function rteSafeUrl(u){var s=String(u||'').trim();if(!s)return'';var c=s.indexOf(':');if(c<0)return s;var p=s.slice(0,c);if(/[/?#]/.test(p))return s;return /^(https?|mailto|tel|sms)$/i.test(p)?s:''}
+function rteLink(e){e.preventDefault();
+var sel=window.getSelection(),hasSel=sel&&!sel.isCollapsed&&String(sel).length>0;
+var u=prompt('Link URL:','https://');if(u===null)return;u=rteSafeUrl(u);
+if(!u){alert('Use an http(s) or mailto: URL.');return}
+if(hasSel){document.execCommand('createLink',false,u);rteSync();return}
+var t=prompt('Link text (shown for the link):',u);if(t===null)return;if(!t)t=u;
+document.execCommand('insertHTML',false,'<a href="'+rteEsc(u)+'">'+rteEsc(t)+'</a>');rteSync()}
 function rteImg(e){e.preventDefault();var u=prompt('Image URL:','');if(u)document.execCommand('insertImage',false,u)}
 function rteSave(c){try{return window.getSelection().getRangeAt(0).cloneRange()}catch(x){var r=document.createRange();r.selectNodeContents(c);r.collapse(false);return r}}
 function rteRestore(c,r){c.focus();var s=window.getSelection();s.removeAllRanges();s.addRange(r)}
 // Reflect the selection's formatting back onto the toolbar buttons so the user
-// can tell what's active (Bold/Italic pressed, current block is h2/h3/blockquote,
-// caret is in a list). aria-pressed + the .toolbar button[aria-pressed="true"]
-// rule in shell.ts give the visual "on" state every WYSIWYG editor shows.
-function rteSync(){var c=document.getElementById('content');if(!c)return;var node=null;try{node=window.getSelection().getRangeAt(0).startContainer}catch(e){}if(!node||(node!==c&&!c.contains(node))){rteClear();return}rteSet('Bold',qState('bold'));rteSet('Italic',qState('italic'));rteSet('Insert list item',qState('insertUnorderedList'));rteSet('Numbered list',qState('insertOrderedList'));var blk=String(qVal('formatBlock')||'').toLowerCase().replace(/[<>]/g,'');rteSet('Heading 2',blk==='h2');rteSet('Heading 3',blk==='h3');rteSet('Insert blockquote',blk==='blockquote')}
+// can tell what's active. aria-pressed + the .toolbar button[aria-pressed="true"]
+// rule in shell.ts give the visual "on" state. rteSync runs on selectionchange
+// AND right after each rteCmd/rteHead, so the toolbar updates the instant you
+// click a button (execCommand doesn't always fire selectionchange itself).
+function rteSync(){var c=document.getElementById('content');if(!c)return;var node=null;try{node=window.getSelection().getRangeAt(0).startContainer}catch(e){}if(!node||(node!==c&&!c.contains(node))){rteClear();return}var blk=String(qVal('formatBlock')||'').toLowerCase().replace(/[<>]/g,'');rteSet('Paragraph',blk===''||blk==='p'||blk==='div');rteSet('Bold',qState('bold'));rteSet('Italic',qState('italic'));rteSet('Align left',qState('justifyLeft'));rteSet('Align center',qState('justifyCenter'));rteSet('Align right',qState('justifyRight'));rteSet('Justify',qState('justifyFull'));rteSet('Heading 2',blk==='h2');rteSet('Heading 3',blk==='h3');rteSet('Insert blockquote',blk==='blockquote');rteSet('Insert list item',qState('insertUnorderedList'));rteSet('Numbered list',qState('insertOrderedList'));var ln=(node.nodeType===3?node.parentNode:node);rteSet('Insert link',!!(ln&&ln.closest&&ln.closest('a')))}
 function qState(c){try{return document.queryCommandState(c)}catch(e){return false}}
 function qVal(c){try{return document.queryCommandValue(c)}catch(e){return ''}}
 function rteSet(label,on){var b=document.querySelector('.toolbar button[aria-label="'+label+'"]');if(!b)return;b.setAttribute('aria-pressed',on?'true':'false')}

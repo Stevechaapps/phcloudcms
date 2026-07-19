@@ -22,19 +22,23 @@
 
 const EMPTY: ReadonlySet<string> = new Set();
 
-// Elements we keep, mapped to each element's allowed attribute names.
-// `style` is intentionally NOT allowed anywhere — the editor emits semantic
-// tags (b/i/u/h*/ul/ol/blockquote) via execCommand, not inline styles.
+// Elements we keep, mapped to each element's allowed attribute names. `style`
+// is allowed ONLY on block elements (STYLE_OK) and validated to a single
+// text-align:<keyword> by safeStyle() in emitAttrs — the rich-text editor's
+// justify buttons emit style="text-align:center" etc. Inline elements (b/i/a/
+// img/span/code) stay style-less; any other CSS property is rejected because the
+// whole value must be exactly one keyword (closes expression()/url()/position).
+const STYLE_OK: ReadonlySet<string> = new Set(["style"]);
 const ALLOWED: Record<string, ReadonlySet<string>> = {
-  p: EMPTY,
+  p: STYLE_OK,
   br: EMPTY,
   hr: EMPTY,
-  h1: EMPTY,
-  h2: EMPTY,
-  h3: EMPTY,
-  h4: EMPTY,
-  h5: EMPTY,
-  h6: EMPTY,
+  h1: STYLE_OK,
+  h2: STYLE_OK,
+  h3: STYLE_OK,
+  h4: STYLE_OK,
+  h5: STYLE_OK,
+  h6: STYLE_OK,
   b: EMPTY,
   strong: EMPTY,
   i: EMPTY,
@@ -43,13 +47,13 @@ const ALLOWED: Record<string, ReadonlySet<string>> = {
   s: EMPTY,
   del: EMPTY,
   span: EMPTY,
-  div: EMPTY,
-  blockquote: EMPTY,
+  div: STYLE_OK,
+  blockquote: STYLE_OK,
   pre: EMPTY,
   code: EMPTY,
-  ul: EMPTY,
-  ol: new Set(["start", "type"]),
-  li: EMPTY,
+  ul: STYLE_OK,
+  ol: new Set(["start", "type", "style"]),
+  li: STYLE_OK,
   a: new Set(["href", "title"]),
   img: new Set(["src", "alt", "title"]),
 };
@@ -158,6 +162,17 @@ function safeUrl(u: string): string | null {
   return SAFE_SCHEMES.has(pre.toLowerCase()) ? s : null;
 }
 
+// Only text-align:<keyword> survives a style attribute. The whole value must
+// be exactly that one keyword (optional trailing ;) so a second property or
+// any expression()/url()/position injection fails the anchored regex and is
+// dropped. Returns a normalized lowercase value, or null to reject entirely.
+const ALIGN_RE =
+  /^\s*text-align\s*:\s*(left|right|center|justify|start|end)\s*;?\s*$/i;
+function safeStyle(v: string): string | null {
+  const m = ALIGN_RE.exec(String(v ?? ""));
+  return m ? "text-align:" + m[1].toLowerCase() : null;
+}
+
 function escapeText(s: string): string {
   // Only & and < need escaping in element text; entities were decoded first.
   return s.replace(/&/g, AMP_ENT).replace(/</g, LT_ENT);
@@ -174,7 +189,7 @@ function emitAttrs(attrStr: string, allowed: ReadonlySet<string>): string {
   let out = "";
   for (const m of attrStr.matchAll(re)) {
     const name = m[1].toLowerCase();
-    if (!allowed.has(name)) continue; // drop on* handlers, style, anything else
+    if (!allowed.has(name)) continue; // on* handlers + anything not allowlisted for this tag
     // m[2]=double-quoted, m[3]=single-quoted, m[4]=unquoted; a real empty
     // value (alt="") must survive, so use ?? (nullish) not || (falsy).
     const raw = m[2] ?? m[3] ?? m[4] ?? "";
@@ -183,6 +198,10 @@ function emitAttrs(attrStr: string, allowed: ReadonlySet<string>): string {
       const url = safeUrl(val);
       if (url === null) continue; // drop javascript:/data:/etc.
       out += " " + name + '="' + escapeAttrValue(url) + '"';
+    } else if (name === "style") {
+      const st = safeStyle(val);
+      if (!st) continue; // reject non-text-align CSS
+      out += ' style="' + escapeAttrValue(st) + '"';
     } else {
       out += " " + name + '="' + escapeAttrValue(val) + '"';
     }

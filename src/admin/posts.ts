@@ -55,6 +55,11 @@ export function newPostBody(): string {
     <button type="button" onmousedown="event.preventDefault();rteHead('<h2>')" title="Heading 2" aria-label="Heading 2">H2</button>
     <button type="button" onmousedown="event.preventDefault();rteHead('<h3>')" title="Heading 3" aria-label="Heading 3">H3</button>
     <span class="sep"></span>
+    <button type="button" onmousedown="event.preventDefault();rteCmd('justifyLeft')" title="Align left" aria-label="Align left">Left</button>
+    <button type="button" onmousedown="event.preventDefault();rteCmd('justifyCenter')" title="Align center" aria-label="Align center">Center</button>
+    <button type="button" onmousedown="event.preventDefault();rteCmd('justifyRight')" title="Align right" aria-label="Align right">Right</button>
+    <button type="button" onmousedown="event.preventDefault();rteCmd('justifyFull')" title="Justify" aria-label="Justify">Justify</button>
+    <span class="sep"></span>
     <button type="button" onmousedown="rteLink(event)" title="Link" aria-label="Insert link">Link</button>
     <button type="button" onmousedown="rteImg(event)" title="Image by URL" aria-label="Insert image by URL">Img</button>
     <span class="sep"></span>
@@ -156,6 +161,11 @@ export function editBody(post: {
     <span class="sep"></span>
     <button type="button" onmousedown="event.preventDefault();rteHead('<h2>')" title="Heading 2" aria-label="Heading 2">H2</button>
     <button type="button" onmousedown="event.preventDefault();rteHead('<h3>')" title="Heading 3" aria-label="Heading 3">H3</button>
+    <span class="sep"></span>
+    <button type="button" onmousedown="event.preventDefault();rteCmd('justifyLeft')" title="Align left" aria-label="Align left">Left</button>
+    <button type="button" onmousedown="event.preventDefault();rteCmd('justifyCenter')" title="Align center" aria-label="Align center">Center</button>
+    <button type="button" onmousedown="event.preventDefault();rteCmd('justifyRight')" title="Align right" aria-label="Align right">Right</button>
+    <button type="button" onmousedown="event.preventDefault();rteCmd('justifyFull')" title="Justify" aria-label="Justify">Justify</button>
     <span class="sep"></span>
     <button type="button" onmousedown="rteLink(event)" title="Link" aria-label="Insert link">Link</button>
     <button type="button" onmousedown="rteImg(event)" title="Image by URL" aria-label="Insert image by URL">Img</button>
