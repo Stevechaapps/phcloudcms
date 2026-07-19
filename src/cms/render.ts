@@ -58,7 +58,14 @@ export function shellFull(
   const navHtml = nav
     .map((n) => '<a href="' + esc(n.url) + '">' + esc(n.label) + "</a>")
     .join("");
-  const adminLink = '<a href="/admin/login" style="color:#f97316">Admin</a>';
+
+  const searchForm = `
+    <form action="/search" method="get" class="search-wrap" role="search">
+      <input type="text" name="q" placeholder="Search..." aria-label="Search site">
+    </form>`;
+
+  const adminLink = '<a href="/admin/login" style="color:var(--accent);font-weight:600">Admin</a>';
+
   return (
     '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>' +
     esc(siteName) +
@@ -71,15 +78,18 @@ export function shellFull(
     THEME_INIT_SCRIPT +
     '</head><body><a href="#main" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0">Skip to content</a><header><div class="inner"><a href="/" class="site-name">' +
     esc(siteName) +
-    "</a><nav>" +
+    '</a><nav>' +
+    searchForm +
     navHtml +
     THEME_TOGGLE_BTN +
     adminLink +
     '</nav></div></header><main id="main">' +
     bodyHtml +
-    "</main><footer>Powered by PHCloud CMS on Cloudflare Workers</footer>" +
+    '</main><footer><div class="inner"><div class="brand"><strong>' +
+    esc(siteName) +
+    '</strong><p>A minimalist publishing space.</p></div><div class="links"><div class="links-group"><span>Site</span><a href="/">Home</a><a href="/search">Search</a></div><div class="links-group"><span>Resources</span><a href="/feed.xml">RSS Feed</a><a href="/sitemap.xml">Sitemap</a></div><div class="links-group"><span>Credits</span><a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">PHCloud CMS</a></div></div></div></footer>' +
     THEME_TOGGLE_SCRIPT +
-    "</body></html>"
+    '</body></html>'
   );
 }
 
@@ -91,9 +101,9 @@ export function renderPost(post: Post): string {
     day: "numeric",
   });
   return (
-    "<h1>" +
+    "<h1 style=\"margin-bottom:0.5rem\">" +
     esc(post.title) +
-    '</h1><div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:2rem;">' +
+    '</h1><div style="color:var(--text-muted);font-size:0.9rem;margin-bottom:2.5rem;font-variant-numeric:tabular-nums">' +
     date +
     '</div><div class="post-content">' +
     sanitizePostHtml(post.content) +
@@ -103,9 +113,9 @@ export function renderPost(post: Post): string {
 
 export function renderHomepage(siteName: string): string {
   return (
-    "<h1>" +
+    '<div class="site-title"><h1>' +
     esc(siteName) +
-    '</h1><p style="color:var(--text-muted);margin-bottom:2rem;">Welcome. Content served from Cloudflare D1.</p><p style="color:var(--text-muted);"><a href="/admin/login">Log in</a> to manage your site.</p>'
+    '</h1><p>Welcome to my digital garden. Explore posts, thoughts, and guides below.</p></div>'
   );
 }
 
@@ -115,9 +125,7 @@ export function renderPostList(
 ): string {
   if (!posts.length) return renderHomepage(siteName);
   let html =
-    '<h1 style="margin-bottom:2rem">' +
-    esc(siteName) +
-    '</h1><div style="display:flex;flex-direction:column;gap:1.5rem">';
+    '<div class="post-list">';
   for (const p of posts) {
     const date = new Date(p.updated_at).toLocaleDateString("en-US", {
       year: "numeric",
@@ -125,26 +133,24 @@ export function renderPostList(
       day: "numeric",
     });
     html +=
-      '<article style="border-bottom:1px solid var(--border);padding-bottom:1.5rem">';
+      '<article class="post-card">';
     html +=
-      '<h2 style="font-size:1.15rem;margin-bottom:0.3rem"><a href="/' +
+      '<div class="meta">' + date + '</div>';
+    html +=
+      '<h2><a href="/' +
       esc(p.slug) +
-      '" style="color:var(--text);text-decoration:none">' +
+      '"> ' +
       esc(p.title) +
-      "</a></h2>";
-    html +=
-      '<div style="color:var(--text-muted);font-size:0.8rem;margin-bottom:0.5rem">' +
-      date +
-      "</div>";
+      '</a></h2>';
     if (p.excerpt)
       html +=
-        '<p style="color:var(--text-light);line-height:1.6">' +
+        '<div class="excerpt">' +
         esc(p.excerpt) +
-        "</p>";
+        '</div>';
     html +=
       '<a href="/' +
       esc(p.slug) +
-      '" style="color:var(--accent);font-size:0.85rem;text-decoration:none">Read more →</a>';
+      '" class="read-more">Read more →</a>';
     html += "</article>";
   }
   html += "</div>";
@@ -165,26 +171,26 @@ export function renderPagination(
     return basePath + (qs ? "?" + qs : "");
   };
   let html =
-    '<nav style="display:flex;justify-content:center;gap:0.5rem;margin-top:2rem;align-items:center">';
+    '<nav style="display:flex;justify-content:center;gap:0.5rem;margin-top:3rem;align-items:center">';
   if (page > 1)
     html +=
       '<a href="' +
       esc(buildUrl(page - 1)) +
-      '" style="padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:4px;text-decoration:none;color:var(--accent)">← Prev</a>';
+      '" style="padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;text-decoration:none;color:var(--accent)">← Prev</a>';
   const startPage = Math.max(1, page - 2);
   const endPage = Math.min(totalPages, page + 2);
   if (startPage > 1) html += '<span style="color:var(--text-muted)">…</span>';
   for (let i = startPage; i <= endPage; i++) {
     if (i === page) {
       html +=
-        '<span style="padding:0.4rem 0.8rem;background:var(--accent);color:#fff;border-radius:4px;font-weight:600">' +
+        '<span style="padding:0.4rem 0.8rem;background:var(--accent);color:#fff;border-radius:6px;font-weight:600">' +
         i +
         "</span>";
     } else {
       html +=
         '<a href="' +
         esc(buildUrl(i)) +
-        '" style="padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:4px;text-decoration:none;color:var(--accent)">' +
+        '" style="padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;text-decoration:none;color:var(--accent)">' +
         i +
         "</a>";
     }
@@ -195,7 +201,7 @@ export function renderPagination(
     html +=
       '<a href="' +
       esc(buildUrl(page + 1)) +
-      '" style="padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:4px;text-decoration:none;color:var(--accent)">Next →</a>';
+      '" style="padding:0.4rem 0.8rem;border:1px solid var(--border);border-radius:6px;text-decoration:none;color:var(--accent)">Next →</a>';
   html += "</nav>";
   return html;
 }
