@@ -9,7 +9,7 @@ export function settingsBody(): string {
 <label>Site Logo</label>
 <div id="logoPreview" style="margin-bottom:0.5rem"></div>
 <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp" />
-<p style="color:var(--ad-muted);font-size:0.8rem;margin-top:0.4rem">Recommended: a wide, short logo (about <strong>600×200px</strong>, PNG with transparency). Shrunk to 600px wide if larger; a wider banner works better for the social-share image. Flat logos stay lossless PNG (crisp + small); photo-like logos compress to WebP. Transparency kept.</p>
+<p style="color:var(--ad-muted);font-size:0.8rem;margin-top:0.4rem">Recommended: a wide, short logo (about <strong>600×200px</strong>, PNG with transparency). Shrunk to 600px wide and re-encoded to lossless PNG if larger; logos already ≤600px are stored as-is. Transparency kept.</p>
 </div>
 <button type="submit" class="btn btn-primary">Save Settings</button>
 <div id="status" style="margin-top:1rem;font-size:0.9rem" aria-live="polite" role="status"></div>
@@ -26,7 +26,8 @@ export function settingsBody(): string {
 fetch('/api/admin/settings').then(function(r){return r.json()}).then(function(s){
 document.getElementById('siteName').value=s.site_name;
 document.getElementById('seoDescription').value=s.seo_description;
-if(s.site_logo){var img=document.createElement('img');img.src=s.site_logo;img.style.cssText='max-width:120px;max-height:60px;border:1px solid var(--ad-card-bd);border-radius:4px';document.getElementById('logoPreview').appendChild(img)}});
+if(s.site_logo){var img=document.createElement('img');img.style.cssText='max-width:120px;max-height:60px;border:1px solid var(--ad-card-bd);border-radius:4px;display:block';document.getElementById('logoPreview').appendChild(img);
+img.onerror=function(){fetch(img.src,{cache:'no-store'}).then(function(r){return r.arrayBuffer().then(function(b){var u=new Uint8Array(b),h='';for(var i=0;i<Math.min(8,u.length);i++)h+=(u[i]<16?'0':'')+u[i].toString(16)+' ';return r.status+' '+r.headers.get('content-type')+' '+b.byteLength+'B head=['+h.trim()+']'})}).then(function(t){var d=document.createElement('div');d.style.cssText='color:#dc2626;font-size:0.72rem;word-break:break-all;margin-top:0.4rem';d.textContent='LOGO BROKEN — '+img.src+' → '+t;document.getElementById('logoPreview').appendChild(d)}).catch(function(e){var d=document.createElement('div');d.style.cssText='color:#dc2626;font-size:0.72rem';d.textContent='LOGO BROKEN — '+img.src+' (probe error: '+e+')';document.getElementById('logoPreview').appendChild(d)})};img.src=s.site_logo}});
 document.getElementById('settingsForm').addEventListener('submit',function(e){
 e.preventDefault();
 var status=document.getElementById('status');
@@ -39,35 +40,22 @@ var reader=new FileReader();
 reader.onload=function(ev){
 var img=new Image();
 img.onload=function(){
-var MAX_W=600;
-var w=img.width,h=img.height;
-if(!w||!h){status.style.color='#dc2626';status.textContent='That file has no readable pixel dimensions (SVGs without an embedded width/height do this). Re-save it as a PNG, JPEG, or WebP with a set size and re-upload.';return}
-if(w>MAX_W){h=Math.round(h*MAX_W/w);w=MAX_W}
-var c=document.createElement('canvas');
-c.width=w;c.height=h;
-var ctx=c.getContext('2d');
-ctx.drawImage(img,0,0,w,h);
-// Flat logos (text/shapes, transparency) stay crisp + small as lossless PNG;
-// photo-like logos and JPEGs compress to lossy WebP q0.7. Heuristic: count
-// distinct colors on the downscaled canvas — flat art has a few thousand or
-// fewer, photos run into the tens of thousands. Counting pixels is cheap at
-// 600px wide. (ponytail: color-count heuristic; misclassifies a noisy-but-
-// flat logo toward webp, only costs a little edge softness.)
-var outType='image/webp',outExt='webp';
-if((logoFile.type||'')==='image/png'){try{var px=ctx.getImageData(0,0,w,h).data;var seen=Object.create(null),n=0;for(var i=0;i<px.length;i+=4){var k=px[i]+','+px[i+1]+','+px[i+2]+','+px[i+3];if(!seen[k]){seen[k]=1;if(++n>=5000)break}}if(n<5000){outType='image/png';outExt='png'}}catch(e){}}
-c.toBlob(function(blob){
-function go(b){var r2=new FileReader();r2.onload=function(ev2){
-fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:ev2.target.result,filename:'logo.'+outExt})}).then(function(r){return r.json()}).then(function(res){
-if(res.url){data.site_logo=res.url;saveSettings(data,status)}
-else{status.style.color='#dc2626';status.textContent='Logo upload failed'}})};r2.readAsDataURL(b)}
-// c.toBlob passes null when the browser can't encode the requested type
-// (notably WebP on older Safari/mobile); a null readAsDataURL would throw
-// inside the async callback and leave the Saving… spinner hung forever. Fall
-// back to PNG, which every browser supports; only error loudly if PNG fails.
-if(blob){go(blob);return}
-if(outType==='image/webp'){outExt='png';c.toBlob(function(b2){if(b2)go(b2);else{status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.'}},'image/png',1);return}
-status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.'},outType,0.7)};
-img.src=ev.target.result};
+var MAX_W=600,w=img.width,h=img.height;
+if(!w||!h){status.style.color='#dc2626';status.textContent='That file has no readable pixel dimensions (SVGs without an embedded width/height do this). Re-save it as a PNG or JPEG with a set size and re-upload.';return}
+function post(durl,ext){fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:durl,filename:'logo.'+ext})}).then(function(r){return r.json()}).then(function(res){if(res.url){data.site_logo=res.url;saveSettings(data,status)}else{status.style.color='#dc2626';status.textContent='Logo upload failed'}})}
+// Small enough (<=600px): ship the file's original bytes verbatim — no canvas,
+// no re-encode — so a valid source can't become a blank/broken image through
+// the encode step. The file's own data URL already names its real mime.
+if(w<=MAX_W){post(ev.target.result,(logoFile.type||'image/png').split('/')[1]||'png');return}
+// Wider than 600: resize on a transparent canvas and re-encode lossless PNG.
+// (ponytail: a logo is flat art — lossless PNG suffices and preserves alpha.
+// Dropped the flat-vs-photo -> PNG/WebP heuristic + the WebP path entirely;
+// it was speculative over-engineering for a photo-logo that doesn't occur,
+// and a null/blank WebP encode was a plausible source of "saved but blank".)
+h=Math.round(h*MAX_W/w);w=MAX_W;
+var c=document.createElement('canvas');c.width=w;c.height=h;
+c.getContext('2d').drawImage(img,0,0,w,h);
+c.toBlob(function(b){if(!b){status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.';return}var r2=new FileReader();r2.onload=function(e2){post(e2.target.result,'png')};r2.readAsDataURL(b)},'image/png')};
 reader.readAsDataURL(logoFile)}
 else{saveSettings(data,status)}});
 function saveSettings(data,status){
