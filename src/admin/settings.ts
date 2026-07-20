@@ -40,8 +40,10 @@ var data={site_name:document.getElementById('siteName').value,seo_description:do
 var logoFile=document.getElementById('logoFile').files[0];
 if(logoFile){
 var reader=new FileReader();
+reader.onerror=function(){status.style.color='#dc2626';status.textContent='Could not read this file — try a different one.'};
 reader.onload=function(ev){
 var img=new Image();
+img.onerror=function(){status.style.color='#dc2626';status.textContent='Could not decode this image. Re-save it as a PNG or JPEG with a set pixel size and re-upload.'};
 img.onload=function(){
 var MAX_W=600,w=img.width,h=img.height;
 if(!w||!h){status.style.color='#dc2626';status.textContent='That file has no readable pixel dimensions (SVGs without an embedded width/height do this). Re-save it as a PNG or JPEG with a set size and re-upload.';return}
@@ -58,7 +60,7 @@ if(w<=MAX_W){post(ev.target.result,(logoFile.type||'image/png').split('/')[1]||'
 h=Math.round(h*MAX_W/w);w=MAX_W;
 var c=document.createElement('canvas');c.width=w;c.height=h;
 c.getContext('2d').drawImage(img,0,0,w,h);
-c.toBlob(function(b){if(!b){status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.';return}var r2=new FileReader();r2.onload=function(e2){post(e2.target.result,'png')};r2.readAsDataURL(b)},'image/png')};
+c.toBlob(function(b){if(!b){status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.';return}var r2=new FileReader();r2.onerror=function(){status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.'};r2.onload=function(e2){post(e2.target.result,'png')};r2.readAsDataURL(b)},'image/png')};
 reader.readAsDataURL(logoFile)}}
 else{saveSettings(data,status)}});
 function saveSettings(data,status){
