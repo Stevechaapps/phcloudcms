@@ -109,7 +109,7 @@ binding = "CACHE"
 id = "<paste your KV namespace ID here>"
 ```
 
-> The repo ships with the original author's D1 and KV IDs pre-filled — **you must overwrite them with your own.** Cloudflare Workers Builds wipes dashboard bindings that aren't in `wrangler.toml`, so the file must hold *your* real IDs before you deploy.
+> The repo ships with the original author's D1 and KV IDs pre-filled — those are safe to share (they're just resource identifiers, not secrets). Still, **you must overwrite them with your own** before deploying. Cloudflare Workers Builds wipes dashboard bindings that aren't in `wrangler.toml`, so the file must hold *your* real IDs.
 
 Commit the change to `main` on your fork.
 
