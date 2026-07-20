@@ -4,6 +4,8 @@
 
 One runtime dependency ([Hono](https://hono.dev)). Content lives in D1 (serverless SQLite), images and sessions in KV. No external databases, no S3, no API keys, no credit card. Push to `main` and Cloudflare Workers Builds ships it.
 
+**~80KB compiled** · 38 source files · single Worker · cold start <10ms
+
 ```
 Cloudflare Workers · Hono v4 · D1 + KV · TypeScript · one dependency
 ```
@@ -27,7 +29,6 @@ Cloudflare Workers · Hono v4 · D1 + KV · TypeScript · one dependency
 - [Local development](#local-development)
 - [Project structure](#project-structure)
 - [Themes](#themes)
-- [Plugins](#plugins)
 - [Security](#security)
 - [Tech stack](#tech-stack)
 - [FAQ / Troubleshooting](#faq--troubleshooting)
@@ -37,7 +38,7 @@ Cloudflare Workers · Hono v4 · D1 + KV · TypeScript · one dependency
 
 ## What it is
 
-PHCloud is a single-worker CMS for one site. You write posts and pages in a browser-based WYSIWYG editor; they're stored as sanitized HTML in D1 and rendered through a static theme. It ships with tags, RSS, sitemap, search, SEO meta tags, and a hooks-based plugin system — all inside one Worker.
+PHCloud is a single-worker CMS for one site. You write posts and pages in a browser-based WYSIWYG editor; they're stored as sanitized HTML in D1 and rendered through a static theme. It ships with tags, RSS, sitemap, search, and SEO meta tags — all inside one Worker.
 
 It is deliberately small: one Hono app, one router, one dependency. There is no build step, no `node_modules` shipped to the edge, and no framework runtime.
 
@@ -56,7 +57,6 @@ It is deliberately small: one Hono app, one router, one dependency. There is no 
 | **RSS feed** | Auto-generated at `/feed.xml` |
 | **XML sitemap** | Auto-generated at `/sitemap.xml` |
 | **Themes** | One static theme file (`src/themes/default.ts`) compiled into the Worker; automatic light/dark via `prefers-color-scheme` plus a header toggle that remembers your choice |
-| **Plugins** | Hooks-based TypeScript plugins. Built-in: SEO, Sitemap, Tag Cloud |
 | **Onboarding wizard** | First-run setup in the browser — creates your admin account and seeds defaults |
 | **Auth** | PBKDF2 password hashing (Web Crypto, 100k iterations), HTTP-only cookies, KV-backed sessions |
 | **Caching** | Posts, settings, and nav cached in KV; image bytes cached in KV for 30 days. Cache is invalidated on publish/edit/delete. |
@@ -158,8 +158,6 @@ Your site goes live at `https://<project-name>.<your-subdomain>.workers.dev`.
    - **Site name**
    - **Admin username** (defaults to `admin`)
    - **Admin password** (≥ 8 characters)
-   - **SEO plugin** — recommended on
-   - **Sitemap plugin** — recommended on
 3. Click **Initialize Core Systems**
 
 This creates the D1 schema (`migrate`), seeds defaults, and logs you in. You land on `/admin`.
@@ -208,18 +206,17 @@ npm run lint:fix   # prettier --write src/
 ```
 src/
   index.ts          Worker entrypoint — middleware + route registration (catch-all last)
-  cms/              framework bits: auth, d1 (migrate), sanitize, escape, render, registry, middleware
-  admin/            admin UI: shell, dashboard, posts, pages, tags, nav, images, plugins, settings, editor, login
-  routes/           HTTP routes by domain: posts, pages, tags, nav, images, plugins, install, wipe, public, settings, auth
-  plugins/          built-in plugins: seo, sitemap, tag-cloud
+  cms/              framework bits: auth, d1 (migrate), sanitize, escape, render, middleware
+  admin/            admin UI: shell, dashboard, posts, pages, tags, nav, images, settings, editor, login
+  routes/           HTTP routes by domain: posts, pages, tags, nav, images, install, wipe, public, settings, auth
   themes/           default.ts (single static theme, compiled into the Worker)
 ```
 
-Routing lives in `src/routes/*`; the admin HTML bodies live in `src/admin/*`; the framework glue (auth, DB, sanitization, plugin registry) lives in `src/cms/*`. The editor's inline JavaScript is shared in `src/admin/editor.ts`.
+Routing lives in `src/routes/*`; the admin HTML bodies live in `src/admin/*`; the framework glue (auth, DB, sanitization) lives in `src/cms/*`. The editor's inline JavaScript is shared in `src/admin/editor.ts`.
 
 ## Themes
 
-There is a single static theme file at [`src/themes/default.ts`](src/themes/default.ts). Themes are **not** plugins and there is no runtime theme registry — the theme is compiled into the Worker.
+There is a single static theme file at [`src/themes/default.ts`](src/themes/default.ts) compiled into the Worker.
 
 ```typescript
 export const css = `…`;
@@ -231,17 +228,11 @@ export const css = `…`;
 
 See [`THEMES.md`](THEMES.md).
 
-## Plugins
-
-A hooks-based plugin system: plugins register a manifest + hook bindings against a pipeline (`CMSRegistry` in `src/cms/registry.ts`). Built-in: **SEO**, **Sitemap**, **Tag Cloud**.
-
-Plugins are TypeScript files added to `src/plugins/` and registered in `src/plugins/index.ts` — they're compiled into the Worker at deploy time. There is no runtime plugin installation or marketplace.
-
 ## Security
 
 Set globally on every response in `src/index.ts`:
 
-- `Content-Security-Policy`: `default-src 'self'` (inline scripts/styles allowed for the dynamic templates)
+- `Content-Security-Policy`: `default-src 'self'; script-src 'nonce-<random>' 'strict-dynamic'; style-src 'unsafe-inline'; script-src-attr 'unsafe-inline'` (CSP nonce is injected into `<script>` tags via middleware; `'unsafe-inline'` on styles and inline event handlers since they're first-party admin code, not user content)
 - `Strict-Transport-Security`: `max-age=31536000; includeSubDomains`
 - `X-Frame-Options: DENY` · `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
