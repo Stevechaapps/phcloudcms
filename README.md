@@ -142,7 +142,9 @@ npx wrangler deploy
 
 Your site goes live at `https://<project-name>.<your-subdomain>.workers.dev`.
 
-> Want a shorter URL? In Workers & Pages → **Change** your account subdomain (e.g. `steve`), and/or rename the Worker (Settings → Service name) to something short like `ph`. Shortest: `ph.steve.workers.dev`.
+> **Add your own custom domain:** After setup, go to Workers & Pages → your Worker → **Triggers** → **Custom Domains** → **Add Custom Domain**. Cloudflare handles DNS and SSL automatically.
+
+> Want a shorter Worker URL? In Workers & Pages → **Change** your account subdomain (e.g. `steve`), and/or rename the Worker (Settings → Service name) to something short like `ph`. Shortest: `ph.steve.workers.dev`.
 
 ## Run the onboarding wizard
 
