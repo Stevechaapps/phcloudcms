@@ -62,13 +62,17 @@ var reader=new FileReader();
 reader.onload=function(ev){var img=new Image();img.onload=function(){
 var MAX_W=1200,w=img.width,h=img.height;if(w>MAX_W){h=Math.round(h*MAX_W/w);w=MAX_W}
 var cv=document.createElement('canvas');cv.width=w;cv.height=h;var ctx=cv.getContext('2d');ctx.drawImage(img,0,0,w,h);
-cv.toBlob(function(blob){var r2=new FileReader();r2.onload=function(ev2){var dataUrl=ev2.target.result;status.textContent='Uploading…';
+function go(blob){var r2=new FileReader();r2.onload=function(ev2){var dataUrl=ev2.target.result;status.textContent='Uploading…';
 fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:dataUrl,filename:file.name||fallbackName})})
 .then(function(r){return r.json()}).then(function(res){
 if(res.url){rteRestore(c,saved);document.execCommand('insertImage',false,res.url);status.style.color='#16a34a';status.textContent='Image uploaded'}
 else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}})
-.catch(function(){status.style.color='#dc2626';status.textContent='Upload error'})};
-r2.readAsDataURL(blob)},'image/webp',0.7)};
+.catch(function(){status.style.color='#dc2626';status.textContent='Upload error'})};r2.readAsDataURL(blob)}
+// toBlob passes null on browsers that can't encode WebP (older Safari/mobile);
+// readAsDataURL(null) threw in the async callback and hung the spinner
+// silently — this was why pasting/dropping an image into the editor never
+// uploaded. Fall back to PNG, which every browser encodes.
+cv.toBlob(function(blob){if(blob){go(blob);return}cv.toBlob(function(b2){if(b2)go(b2);else{status.style.color='#dc2626';status.textContent='Could not encode image'}},'image/png')},'image/webp',0.7)};
 img.src=ev.target.result};
 reader.readAsDataURL(file)}`;
 

@@ -18,11 +18,15 @@ const tsFiles = readdirSync(root, { withFileTypes: true })
   .filter((d) => d.isFile() && d.name.endsWith(".ts"))
   .map((d) => join(root, d.name));
 
-const scriptRe = /<script>([\s\S]*?)<\/script>/g;
 let fails = 0,
   checked = 0,
   skipped = 0;
 
+// 1) Inline <script>...</script> blocks embedded straight in a template
+// literal (the settings page): tsc never parses these, so a stray brace
+// ships green and kills the whole page's behavior. The settings "Save
+// clears everything" bug was exactly this.
+const scriptRe = /<script>([\s\S]*?)<\/script>/g;
 for (const f of tsFiles) {
   const src = readFileSync(f, "utf8");
   let i = 0,
@@ -52,5 +56,30 @@ for (const f of tsFiles) {
     }
   }
 }
-console.log(`checked ${checked} inline scripts (skipped ${skipped} template-stubs), ${fails} failures`);
+
+// 2) Exported `const X = \`...\`` template-literal scripts (editor.ts): these
+// are injected as <script>${X}</script> at runtime, so a parse error in the
+// const kills the post/page editor silently. Check them directly.
+const constRe = /export\s+const\s+(\w+)\s*=\s*`([\s\S]*?)`;/g;
+for (const f of tsFiles) {
+  const src = readFileSync(f, "utf8");
+  let m;
+  while ((m = constRe.exec(src))) {
+    const name = m[1];
+    const body = m[2];
+    if (!/[\n{};()]/.test(body) && body.length < 40) {
+      skipped++;
+      continue;
+    } // not code, just a string
+    checked++;
+    try {
+      new Function(body);
+    } catch (e) {
+      fails++;
+      console.error(`PARSE ERROR in ${f} const ${name}: ${e.message}`);
+    }
+  }
+}
+
+console.log(`checked ${checked} scripts (skipped ${skipped}), ${fails} failures`);
 process.exit(fails ? 1 : 0);
