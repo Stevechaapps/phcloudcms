@@ -59,7 +59,7 @@ h=Math.round(h*MAX_W/w);w=MAX_W;
 var c=document.createElement('canvas');c.width=w;c.height=h;
 c.getContext('2d').drawImage(img,0,0,w,h);
 c.toBlob(function(b){if(!b){status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.';return}var r2=new FileReader();r2.onload=function(e2){post(e2.target.result,'png')};r2.readAsDataURL(b)},'image/png')};
-reader.readAsDataURL(logoFile)}
+reader.readAsDataURL(logoFile)}}
 else{saveSettings(data,status)}});
 function saveSettings(data,status){
 fetch('/api/admin/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(function(r){
