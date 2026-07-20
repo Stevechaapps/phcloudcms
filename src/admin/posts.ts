@@ -45,7 +45,7 @@ export function newPostBody(): string {
 <div class="form-group"><label for="title">Title</label><input type="text" id="title" name="title" required /></div>
 <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required /></div>
 </div>
-<div class="form-group"><label for="excerpt">Excerpt <span style="color:var(--ad-muted);font-weight:400">(optional, max 255 chars)</span></label><textarea id="excerpt" name="excerpt" rows="1" maxlength="255" style="min-height:2.5rem;resize:none;font-family:inherit;height:auto"></textarea></div>
+<div class="form-group"><label for="excerpt">Excerpt <span style="color:var(--ad-muted);font-weight:400">(optional, max 255 chars)</span></label><textarea id="excerpt" name="excerpt" rows="4" maxlength="255" style="min-height:0;resize:none"></textarea></div>
 <div class="form-group">
   <label for="content">Content <span style="color:var(--ad-muted);font-weight:400">(Rich text)</span></label>
   <div class="toolbar">
@@ -152,7 +152,7 @@ export function editBody(post: {
 <div class="form-group"><label for="title">Title</label><input type="text" id="title" name="title" required value="${esc(post.title)}" /></div>
 <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required value="${esc(post.slug)}" /></div>
 </div>
-<div class="form-group"><label for="excerpt">Excerpt <span style="color:var(--ad-muted);font-weight:400">(optional, max 255 chars)</span></label><textarea id="excerpt" name="excerpt" rows="1" maxlength="255" style="min-height:2.5rem;resize:none;font-family:inherit;height:auto">${esc(String(post.excerpt ?? ""))}</textarea></div>
+<div class="form-group"><label for="excerpt">Excerpt <span style="color:var(--ad-muted);font-weight:400">(optional, max 255 chars)</span></label><textarea id="excerpt" name="excerpt" rows="4" maxlength="255" style="min-height:0;resize:none">${esc(String(post.excerpt ?? ""))}</textarea></div>
  <div class="form-group">
   <label for="content">Content <span style="color:var(--ad-muted);font-weight:400">(Rich text)</span></label>
   <div class="toolbar">
