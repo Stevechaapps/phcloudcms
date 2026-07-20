@@ -48,20 +48,13 @@ img.onload=function(){
 var MAX_W=600,w=img.width,h=img.height;
 if(!w||!h){status.style.color='#dc2626';status.textContent='That file has no readable pixel dimensions (SVGs without an embedded width/height do this). Re-save it as a PNG or JPEG with a set size and re-upload.';return}
 function post(durl,ext){fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:durl,filename:'logo.'+ext})}).then(function(r){if(!r.ok){throw new Error('POST /api/admin/images → '+r.status+' '+(r.statusText||''))}return r.json()}).then(function(res){if(res.url){data.site_logo=res.url;saveSettings(data,status)}else{status.style.color='#dc2626';status.textContent='Logo upload failed'}}).catch(function(e){status.style.color='#dc2626';status.textContent='Logo upload failed: '+(e&&e.message||e)})}
-// Small enough (<=600px): ship the file's original bytes verbatim — no canvas,
-// no re-encode — so a valid source can't become a blank/broken image through
-// the encode step. The file's own data URL already names its real mime.
 if(w<=MAX_W){post(ev.target.result,(logoFile.type||'image/png').split('/')[1]||'png');return}
-// Wider than 600: resize on a transparent canvas and re-encode lossless PNG.
-// (ponytail: a logo is flat art — lossless PNG suffices and preserves alpha.
-// Dropped the flat-vs-photo -> PNG/WebP heuristic + the WebP path entirely;
-// it was speculative over-engineering for a photo-logo that doesn't occur,
-// and a null/blank WebP encode was a plausible source of "saved but blank".)
 h=Math.round(h*MAX_W/w);w=MAX_W;
 var c=document.createElement('canvas');c.width=w;c.height=h;
 c.getContext('2d').drawImage(img,0,0,w,h);
 c.toBlob(function(b){if(!b){status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.';return}var r2=new FileReader();r2.onerror=function(){status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.'};r2.onload=function(e2){post(e2.target.result,'png')};r2.readAsDataURL(b)},'image/png')};
-reader.readAsDataURL(logoFile)}}
+img.src=ev.target.result};
+reader.readAsDataURL(logoFile)}
 else{saveSettings(data,status)}});
 function saveSettings(data,status){
 fetch('/api/admin/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(function(r){
