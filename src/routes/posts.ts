@@ -26,7 +26,8 @@ export function registerPostRoutes(app: App): void {
     const publishAt = body.publish_at || null;
     const published = body.publish_at ? 0 : body.published === true ? 1 : 0;
     const previewToken = crypto.randomUUID();
-    const excerpt = String(body.excerpt || autoExcerpt(content));
+    let excerpt = String(body.excerpt || autoExcerpt(content));
+    if (excerpt.length > 255) excerpt = excerpt.slice(0, 255);
 
     let result;
     try {
@@ -119,7 +120,8 @@ export function registerPostRoutes(app: App): void {
     const now = new Date().toISOString();
     const publishAt = body.publish_at || null;
     const published = body.publish_at ? 0 : body.published === true ? 1 : 0;
-    const excerpt = String(body.excerpt || autoExcerpt(content));
+    let excerpt = String(body.excerpt || autoExcerpt(content));
+    if (excerpt.length > 255) excerpt = excerpt.slice(0, 255);
 
     const existing = await c.env.DB.prepare("SELECT preview_token FROM posts WHERE id = ?").bind(id).first<{ preview_token: string | null }>();
     const previewToken = existing?.preview_token || crypto.randomUUID();
