@@ -3,7 +3,8 @@
 
 import { requireAuth } from "../cms/auth.js";
 import { App, parseJsonBody } from "../cms/env.js";
-import { getAllSettings } from "../cms/d1.js";
+import { getAllSettings, getSetting } from "../cms/d1.js";
+import { deleteImage } from "../cms/images.js";
 import { adminShell, settingsBody } from "../admin.js";
 
 export function registerSettingsRoutes(app: App): void {
@@ -34,11 +35,24 @@ export function registerSettingsRoutes(app: App): void {
         .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('seo_description', ?)")
         .bind(body.seo_description)
         .run();
-    if (body.site_logo !== undefined)
+    if (body.site_logo !== undefined) {
+      // Replacing or clearing the logo reclaims the previous logo's image row
+      // (and its /img/:id KV cache) — otherwise every re-upload leaves an
+      // unreferenced row in D1 + KV forever. ponytail: we only reclaim a
+      // /img/N row; a logo pointing elsewhere (or post-content <img> use of the
+      // old image) is left as-is.
+      const prev = await getSetting(db, "site_logo");
+      const prevId = prev?.match(/^\/img\/(\d+)$/)?.[1];
+      const newVal = String(body.site_logo ?? "");
+      const newId = newVal.match(/^\/img\/(\d+)$/)?.[1];
+      if (prevId && prevId !== newId) {
+        await deleteImage(db, parseInt(prevId, 10), c.env.CACHE);
+      }
       await db
         .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('site_logo', ?)")
-        .bind(body.site_logo ?? "")
+        .bind(newVal)
         .run();
+    }
     await c.env.CACHE.delete("cms:settings");
     return c.json({ ok: true });
   });

@@ -4,6 +4,7 @@
 import { requireAuth } from "../cms/auth.js";
 import { App, parseJsonBody } from "../cms/env.js";
 import { saveImage, getImage, deleteImage } from "../cms/images.js";
+import { getSetting } from "../cms/d1.js";
 import { adminShell, imagesBody } from "../admin.js";
 
 export function registerImageRoutes(app: App): void {
@@ -74,6 +75,15 @@ export function registerImageRoutes(app: App): void {
     const id = parseInt(c.req.param("id"), 10);
     if (isNaN(id)) return c.body(null, 400);
     await deleteImage(c.env.DB, id, c.env.CACHE);
+    // Deleting the active logo would dangle site_logo → a broken <img> on
+    // every public page. If this id is the current logo, drop the setting
+    // and bust cms:settings so render.ts falls back to the site-name text
+    // instead of a dead /img/:id.
+    const logo = await getSetting(c.env.DB, "site_logo");
+    if (logo === `/img/${id}`) {
+      await c.env.DB.prepare("DELETE FROM settings WHERE key = 'site_logo'").run();
+      await c.env.CACHE.delete("cms:settings");
+    }
     return c.body(null, 204);
   });
 
