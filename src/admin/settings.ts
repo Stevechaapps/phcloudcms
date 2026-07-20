@@ -56,12 +56,17 @@ ctx.drawImage(img,0,0,w,h);
 var outType='image/webp',outExt='webp';
 if((logoFile.type||'')==='image/png'){try{var px=ctx.getImageData(0,0,w,h).data;var seen=Object.create(null),n=0;for(var i=0;i<px.length;i+=4){var k=px[i]+','+px[i+1]+','+px[i+2]+','+px[i+3];if(!seen[k]){seen[k]=1;if(++n>=5000)break}}if(n<5000){outType='image/png';outExt='png'}}catch(e){}}
 c.toBlob(function(blob){
-var r2=new FileReader();
-r2.onload=function(ev2){
+function go(b){var r2=new FileReader();r2.onload=function(ev2){
 fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:ev2.target.result,filename:'logo.'+outExt})}).then(function(r){return r.json()}).then(function(res){
 if(res.url){data.site_logo=res.url;saveSettings(data,status)}
-else{status.style.color='#dc2626';status.textContent='Logo upload failed'}})};
-r2.readAsDataURL(blob)},outType,0.7)};
+else{status.style.color='#dc2626';status.textContent='Logo upload failed'}})};r2.readAsDataURL(b)}
+// c.toBlob passes null when the browser can't encode the requested type
+// (notably WebP on older Safari/mobile); a null readAsDataURL would throw
+// inside the async callback and leave the Saving… spinner hung forever. Fall
+// back to PNG, which every browser supports; only error loudly if PNG fails.
+if(blob){go(blob);return}
+if(outType==='image/webp'){outExt='png';c.toBlob(function(b2){if(b2)go(b2);else{status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.'}},'image/png',1);return}
+status.style.color='#dc2626';status.textContent='Could not encode this image — try a different file.'},outType,0.7)};
 img.src=ev.target.result};
 reader.readAsDataURL(logoFile)}
 else{saveSettings(data,status)}});
