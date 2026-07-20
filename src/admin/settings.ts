@@ -45,7 +45,7 @@ var img=new Image();
 img.onload=function(){
 var MAX_W=600,w=img.width,h=img.height;
 if(!w||!h){status.style.color='#dc2626';status.textContent='That file has no readable pixel dimensions (SVGs without an embedded width/height do this). Re-save it as a PNG or JPEG with a set size and re-upload.';return}
-function post(durl,ext){fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:durl,filename:'logo.'+ext})}).then(function(r){return r.json()}).then(function(res){if(res.url){data.site_logo=res.url;saveSettings(data,status)}else{status.style.color='#dc2626';status.textContent='Logo upload failed'}})}
+function post(durl,ext){fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:durl,filename:'logo.'+ext})}).then(function(r){if(!r.ok){throw new Error('POST /api/admin/images → '+r.status+' '+(r.statusText||''))}return r.json()}).then(function(res){if(res.url){data.site_logo=res.url;saveSettings(data,status)}else{status.style.color='#dc2626';status.textContent='Logo upload failed'}}).catch(function(e){status.style.color='#dc2626';status.textContent='Logo upload failed: '+(e&&e.message||e)})}
 // Small enough (<=600px): ship the file's original bytes verbatim — no canvas,
 // no re-encode — so a valid source can't become a blank/broken image through
 // the encode step. The file's own data URL already names its real mime.
@@ -64,7 +64,7 @@ else{saveSettings(data,status)}});
 function saveSettings(data,status){
 fetch('/api/admin/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(function(r){
 if(r.ok){status.style.color='#16a34a';status.textContent='Saved!';location.reload()}
-else{status.style.color='#dc2626';status.textContent='Error saving settings'}})}
+else{status.style.color='#dc2626';status.textContent='Error saving settings'}}).catch(function(){status.style.color='#dc2626';status.textContent='Save failed — check your connection.'})}
 document.getElementById('resetBtn').addEventListener('click',function(){
 var s=document.getElementById('resetStatus');
 var typed=prompt('This will permanently erase ALL posts, pages, tags, images, settings, and admin accounts. Type RESET to confirm.');
