@@ -8,10 +8,14 @@ export type Env = {
   CACHE: KVNamespace;
 };
 
+export type Variables = {
+  nonce: string;
+};
+
 // Shared app type — every route module's register() takes this, so the
 // handler wiring in index.ts stays one-liners without repeating the
 // Hono<{ Bindings: Env }> dance in each file.
-export type App = Hono<{ Bindings: Env }>;
+export type App = Hono<{ Bindings: Env; Variables: Variables }>;
 
 // ── Session ────────────────────────────────────────────────────────
 export const SESSION_COOKIE = "phcloudcms_session";

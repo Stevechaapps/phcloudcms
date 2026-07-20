@@ -7,7 +7,7 @@
 
 import { Hono } from "hono";
 import { onboardingGuard } from "./cms/middleware.js";
-import { Env } from "./cms/env.js";
+import { Env, Variables } from "./cms/env.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerPostRoutes } from "./routes/posts.js";
 import { registerPageRoutes } from "./routes/pages.js";
@@ -20,12 +20,21 @@ import { registerInstallRoute } from "./routes/install.js";
 import { registerWipeRoute } from "./routes/wipe.js";
 import { registerPublicRoutes } from "./routes/public.js";
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ── Global middleware ───────────────────────────────────────────────
 app.use("*", onboardingGuard);
 app.use("*", async (c, next) => {
+  const nonce = crypto.randomUUID().replace(/-/g, "");
   await next();
+  // Inject nonce into all <script> tags in HTML responses so CSP can drop
+  // 'unsafe-inline' from script-src without threading a param through every
+  // admin body function. This runs after the handler generates the HTML.
+  if (c.res && /text\/html/.test(c.res.headers.get("content-type") ?? "")) {
+    const text = await c.res.text();
+    const mod = text.replace(/<script(?![^>]*\bnonce=)(\s)/g, '<script$1nonce="' + nonce + '"$1');
+    c.res = new Response(mod, { status: c.res.status, headers: c.res.headers });
+  }
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -33,7 +42,7 @@ app.use("*", async (c, next) => {
   c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   c.header("Content-Security-Policy", [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'nonce-" + nonce + "'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "connect-src 'self'",
