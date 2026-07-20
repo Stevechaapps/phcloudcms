@@ -235,14 +235,7 @@ See [`THEMES.md`](THEMES.md).
 
 A hooks-based plugin system: plugins register a manifest + hook bindings against a pipeline (`CMSRegistry` in `src/cms/registry.ts`). Built-in: **SEO**, **Sitemap**, **Tag Cloud**.
 
-The intended distribution flow is GitHub-based — a plugin is a `.ts` file you drop into your fork and enable in the admin:
-
-```
-Developer writes a plugin → publishes on GitHub
-Site owner drops the .ts file into their fork → commits → enables in admin
-```
-
-See [`PLUGIN_DEV.md`](PLUGIN_DEV.md) and [`PLUGIN_STARTER.md`](PLUGIN_STARTER.md).
+Plugins are TypeScript files added to `src/plugins/` and registered in `src/plugins/index.ts` — they're compiled into the Worker at deploy time. There is no runtime plugin installation or marketplace.
 
 ## Security
 
