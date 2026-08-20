@@ -66,15 +66,27 @@ export function shellFull(
     .map((n) => '<a href="' + esc(n.url) + '">' + esc(n.label) + "</a>")
     .join("");
 
+  // The render:head pipeline (SEO plugin) emits its own <title>+meta+og, so
+  // only fall back to a bare <site name> title when no pipeline ran (404s,
+  // previews). Emitting both gave every page two <title> tags and browsers
+  // use the first — silently killing all SEO titles.
+  const defaultTitle = /<title/i.test(headMarkup)
+    ? ""
+    : "<title>" + esc(siteName) + "</title>";
+
   return (
-    '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="generator" content="PHCloud CMS" /><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f4ef" /><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" /><link rel="icon" type="image/svg+xml" href="/favicon.svg" /><title>' +
+    '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="generator" content="PHCloud CMS" /><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f4ef" /><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" /><link rel="icon" type="image/svg+xml" href="/favicon.svg" />' +
+    defaultTitle +
+    '<link rel="sitemap" type="application/xml" href="/sitemap.xml" /><link rel="alternate" type="application/rss+xml" title="' +
     esc(siteName) +
-    '</title><link rel="sitemap" type="application/xml" href="/sitemap.xml" /><link rel="alternate" type="application/rss+xml" title="' +
-    esc(siteName) +
-    '" href="/feed.xml" /><style>' +
+    '" href="/feed.xml" />' +
+    // Head pipeline markup first (title/description/og/canonical/JSON-LD) so
+    // crawlers that truncate long heads still see the SEO metadata, before
+    // the ~25KB inline stylesheet.
+    headMarkup +
+    "<style>" +
     THEME_CSS +
     "</style>" +
-    headMarkup +
     THEME_INIT_SCRIPT +
     '</head><body><a href="#main" class="sr-only">Skip to content</a><header><div class="inner"><a href="/" class="brand">' +
     (siteLogo
