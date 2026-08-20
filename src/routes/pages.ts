@@ -21,11 +21,14 @@ export function registerPageRoutes(app: App): void {
     const now = new Date().toISOString();
     let result;
     try {
+      const metaTitle = String(body.meta_title ?? "").trim().slice(0, 60);
+      const metaDescription = String(body.meta_description ?? "").trim().slice(0, 160);
+      const excerpt = String(body.excerpt ?? "").trim().slice(0, 255);
       result = await db
         .prepare(
-          "INSERT INTO posts (title, slug, content, excerpt, type, published, created_at, updated_at) VALUES (?, ?, ?, '', 'page', ?, ?, ?)",
+          "INSERT INTO posts (title, slug, content, excerpt, type, published, meta_title, meta_description, created_at, updated_at) VALUES (?, ?, ?, ?, 'page', ?, ?, ?, ?, ?)",
         )
-        .bind(title, slug, sanitizePostHtml(String(body.content ?? "")), body.published === true ? 1 : 0, now, now)
+        .bind(title, slug, sanitizePostHtml(String(body.content ?? "")), excerpt, body.published === true ? 1 : 0, metaTitle, metaDescription, now, now)
         .run();
     } catch (e: any) {
       if (String(e?.message ?? "").includes("UNIQUE")) return c.json({ error: "A page with this slug already exists" }, 409);
@@ -71,14 +74,20 @@ export function registerPageRoutes(app: App): void {
     const body = await parseJsonBody(c);
     if (!body) return c.json({ error: "Invalid JSON" }, 400);
     const now = new Date().toISOString();
+    const metaTitle = String(body.meta_title ?? "").trim().slice(0, 60);
+    const metaDescription = String(body.meta_description ?? "").trim().slice(0, 160);
+    const excerpt = String(body.excerpt ?? "").trim().slice(0, 255);
     const result = await c.env.DB.prepare(
-      "UPDATE posts SET title=?, slug=?, content=?, published=?, updated_at=? WHERE id=? AND type='page'",
+      "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, meta_title=?, meta_description=?, updated_at=? WHERE id=? AND type='page'",
     )
       .bind(
         String(body.title ?? ""),
         String(body.slug ?? ""),
         sanitizePostHtml(String(body.content ?? "")),
+        excerpt,
         body.published === true ? 1 : 0,
+        metaTitle,
+        metaDescription,
         now,
         c.req.param("id"),
       )
@@ -117,7 +126,7 @@ export function registerPageRoutes(app: App): void {
     if (auth instanceof Response) return c.redirect("/admin/login");
     const id = c.req.param("id");
     const page = await c.env.DB.prepare(
-      "SELECT id, title, slug, content, published, updated_at FROM posts WHERE id = ? AND type = 'page'",
+      "SELECT id, title, slug, content, published, updated_at, meta_title, meta_description, excerpt FROM posts WHERE id = ? AND type = 'page'",
     )
       .bind(id)
       .first<{
@@ -127,6 +136,9 @@ export function registerPageRoutes(app: App): void {
         content: string;
         published: number;
         updated_at: string;
+        meta_title: string | null;
+        meta_description: string | null;
+        excerpt: string;
       }>();
     if (!page) return c.notFound();
     return c.html(adminShell("Edit Page", editPageBody(page)));

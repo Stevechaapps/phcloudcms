@@ -39,7 +39,10 @@ export function newPageBody(): string {
 <div class="form-group"><label for="title">Title</label><input type="text" id="title" name="title" required /></div>
 <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required placeholder="about" /></div>
 </div>
+<div class="form-group"><label for="excerpt">Excerpt <span style="color:var(--text-2);font-weight:400">(optional, max 255 chars)</span></label><textarea id="excerpt" name="excerpt" rows="2" maxlength="255" style="min-height:0;resize:none"></textarea></div>
 <div class="form-group"><label for="content">Content <span style="color:var(--text-2);font-weight:400">(Rich text)</span></label><div class="toolbar">${RTE_TOOLBAR}</div><div id="editor-wrap" style="min-height:320px"><div id="content" class="rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Page content" aria-describedby="status" data-ph="Write your page…"></div></div></div>
+<div class="form-group"><label for="metaTitle">SEO meta title <span style="color:var(--text-2);font-weight:400">(max 60 chars)</span></label><input type="text" id="metaTitle" maxlength="60" placeholder="Page title" /><div class="seo-counter" id="sCounter" style="font-size:.72rem;color:var(--text-3);font-variant-numeric:tabular-nums"></div></div>
+<div class="form-group"><label for="metaDesc">SEO meta description <span style="color:var(--text-2);font-weight:400">(max 160 chars)</span></label><textarea id="metaDesc" rows="3" maxlength="160" style="min-height:0;resize:none" placeholder="1-2 sentences describing this page"></textarea><div class="seo-counter" id="dCounter" style="font-size:.72rem;color:var(--text-3);font-variant-numeric:tabular-nums"></div></div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" checked /> Published</label></div>
 <div style="display:flex;gap:0.75rem">
 <button type="submit" class="btn btn-primary">Save Page</button>
@@ -59,22 +62,30 @@ status.style.color='var(--accent)';
 status.textContent='Saving…';
 var fd=new FormData(e.target);
 var contentEl=document.getElementById('content');
-if(!contentEl.textContent.trim()&&!contentEl.querySelector('img')){status.style.color='var(--danger)';status.textContent='Content is required';return}
+  if(!contentEl.textContent.trim()&&!contentEl.querySelector('img')){status.style.color='var(--danger)';status.textContent='Content is required';return}
 fetch('/api/admin/pages',{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({
-title:String(fd.get('title')||''),
-slug:String(fd.get('slug')||''),
-content:contentEl.innerHTML,
-published:document.getElementById('published').checked
-})}).then(function(res){
-if(res.ok){
-status.style.color='var(--ok)';
-status.textContent='Saved!';setTimeout(function(){location.href='/admin/pages'},500)}
-else{status.style.color='var(--danger)';status.textContent='Error saving page'}})});
-</script>
-<script>${EDITOR_FORMAT_SCRIPTS}</script>
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+  title:String(fd.get('title')||''),
+  slug:String(fd.get('slug')||''),
+  content:contentEl.innerHTML,
+  excerpt:String(fd.get('excerpt')||''),
+  meta_title:document.getElementById('metaTitle').value.trim(),
+  meta_description:document.getElementById('metaDesc').value.trim(),
+  published:document.getElementById('published').checked
+  })}).then(function(res){
+  if(res.ok){
+  status.style.color='var(--ok)';
+  status.textContent='Saved!';setTimeout(function(){location.href='/admin/pages'},500)}
+  else{status.style.color='var(--danger)';status.textContent='Error saving page'}})});
+  (function(){
+  var mt=document.getElementById('metaTitle'),md=document.getElementById('metaDesc'),sc=document.getElementById('sCounter'),dc=document.getElementById('dCounter');
+  function up(){if(sc)sc.textContent=mt.value.length+' / 60';if(dc)dc.textContent=md.value.length+' / 160'}
+  if(mt)mt.addEventListener('input',up);if(md)md.addEventListener('input',up);up()
+  })();
+  </script>
+  <script>${EDITOR_FORMAT_SCRIPTS}</script>
 <script>${PASTE_IMAGE_SCRIPT}</script>
 <script>${DROP_IMAGE_SCRIPT}</script>`;
 }
@@ -86,6 +97,9 @@ export function editPageBody(page: {
   content: string;
   published: string | number;
   updated_at: string;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  excerpt?: string | null;
 }): string {
   var id = String(page.id);
   var checked = page.published == 1 || page.published === "1" ? "checked" : "";
@@ -95,7 +109,10 @@ export function editPageBody(page: {
 <div class="form-group"><label for="title">Title</label><input type="text" id="title" name="title" required value="${esc(page.title)}" /></div>
 <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required value="${esc(page.slug)}" /></div>
 </div>
+<div class="form-group"><label for="excerpt">Excerpt <span style="color:var(--text-2);font-weight:400">(optional, max 255 chars)</span></label><textarea id="excerpt" name="excerpt" rows="2" maxlength="255" style="min-height:0;resize:none">${esc(page.excerpt ?? "")}</textarea></div>
 <div class="form-group"><label for="content">Content <span style="color:var(--text-2);font-weight:400">(Rich text)</span></label><div class="toolbar">${RTE_TOOLBAR}</div><div id="editor-wrap" style="min-height:320px"><div id="content" class="rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Page content" aria-describedby="status" data-ph="Write your page…">${sanitizePostHtml(page.content)}</div></div></div>
+<div class="form-group"><label for="metaTitle">SEO meta title <span style="color:var(--text-2);font-weight:400">(max 60 chars)</span></label><input type="text" id="metaTitle" maxlength="60" value="${esc(page.meta_title ?? "")}" placeholder="${esc(page.title.slice(0, 50))}" /><div class="seo-counter" id="sCounter" style="font-size:.72rem;color:var(--text-3);font-variant-numeric:tabular-nums"></div></div>
+<div class="form-group"><label for="metaDesc">SEO meta description <span style="color:var(--text-2);font-weight:400">(max 160 chars)</span></label><textarea id="metaDesc" rows="3" maxlength="160" style="min-height:0;resize:none">${esc(page.meta_description ?? "")}</textarea><div class="seo-counter" id="dCounter" style="font-size:.72rem;color:var(--text-3);font-variant-numeric:tabular-nums"></div></div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" ${checked} /> Published</label></div>
 <div style="font-size:0.8rem;color:var(--text-2);margin-bottom:1rem">Last updated: ${esc(page.updated_at)}</div>
 <div style="display:flex;gap:0.75rem">
@@ -121,14 +138,22 @@ fetch('/api/admin/pages/${id}',{
 method:'PATCH',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify({
-title:String(fd.get('title')||''),
-slug:String(fd.get('slug')||''),
-content:contentEl.innerHTML,
-published:document.getElementById('published').checked
-})}).then(function(res){
+  title:String(fd.get('title')||''),
+  slug:String(fd.get('slug')||''),
+  content:contentEl.innerHTML,
+  excerpt:String(fd.get('excerpt')||''),
+  meta_title:document.getElementById('metaTitle').value.trim(),
+  meta_description:document.getElementById('metaDesc').value.trim(),
+  published:document.getElementById('published').checked
+  })}).then(function(res){
 if(res.ok){status.style.color='var(--ok)';status.textContent='Updated!';setTimeout(function(){location.href='/admin/pages'},500)}
-else{status.style.color='var(--danger)';status.textContent='Error updating page'}})});
-</script>
+  else{status.style.color='var(--danger)';status.textContent='Error updating page'}})});
+  (function(){
+  var mt=document.getElementById('metaTitle'),md=document.getElementById('metaDesc'),sc=document.getElementById('sCounter'),dc=document.getElementById('dCounter');
+  function up(){if(sc)sc.textContent=mt.value.length+' / 60';if(dc)dc.textContent=md.value.length+' / 160'}
+  if(mt)mt.addEventListener('input',up);if(md)md.addEventListener('input',up);up()
+  })();
+  </script>
 <script>${EDITOR_FORMAT_SCRIPTS}</script>
 <script>${PASTE_IMAGE_SCRIPT}</script>
 <script>${DROP_IMAGE_SCRIPT}</script>`;
