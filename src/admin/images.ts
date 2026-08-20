@@ -13,8 +13,8 @@ export function imagesBody(): string {
 .image-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem}
 .image-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:border-color var(--dur) var(--ease)}
 .image-card:hover{border-color:var(--border-2)}
-.image-card .thumb{width:100%;height:140px;overflow:hidden;background:var(--surface-2);display:flex;align-items:center;justify-content:center}
-.image-card .thumb img{width:100%;height:100%;object-fit:cover}
+.image-card .thumb{width:100%;height:140px;overflow:hidden;background:var(--surface-2);display:block}
+.image-card .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .image-card .info{padding:0.7rem;display:flex;flex-direction:column;gap:0.2rem;flex:1}
 .image-card .info .name{font-size:0.8rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .image-card .info .meta{font-size:0.75rem;color:var(--text-3)}
@@ -29,7 +29,7 @@ var grid=document.getElementById('imageGrid');
 if(!imgs.length){grid.innerHTML='<div class="empty card" style="grid-column:1/-1"><h3>No images yet</h3><p>Upload images from the post editor using the toolbar Image button.</p></div>';return}
 grid.innerHTML=imgs.map(function(img){
 return '<div class="image-card">'
-+'<div class="thumb"><img src="/img/'+img.id+'" alt="'+ea(img.filename)+'" loading="lazy" /></div>'
++'<a class="thumb" href="/img/'+img.id+'" title="Open full size" aria-label="Open full size image: '+ea(img.filename)+'"><img src="/img/'+img.id+'" alt="'+ea(img.filename)+'" loading="lazy" /></a>'
 +'<div class="info">'
 +'<div class="name" title="'+ea(img.filename)+'">'+ea(img.filename)+'</div>'
 +'<div class="meta">'+fmtSize(img.size)+' · '+new Date(img.created_at).toLocaleDateString()+'</div>'

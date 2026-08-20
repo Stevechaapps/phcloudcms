@@ -15,14 +15,14 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Aria
 h1{font-size:1.25rem;font-weight:600;letter-spacing:-0.03em;margin-bottom:0.25rem}
 p{color:#a6adba;font-size:0.85rem;margin-bottom:1.5rem}
 label{display:block;font-size:0.8rem;font-weight:600;margin-bottom:0.4rem;color:#a6adba}
-input[type="text"],input[type="password"]{width:100%;padding:0.65rem 0.75rem;border:1px solid rgba(255,255,255,.14);border-radius:7px;font-size:0.95rem;background:#1a1e29;color:#e8eaee;margin-bottom:1rem;outline:none;transition:border-color .15s cubic-bezier(.4,0,.2,1),box-shadow .15s cubic-bezier(.4,0,.2,1)}
-input:focus{border-color:#6d7cf3;box-shadow:0 0 0 3px rgba(109,124,243,.35)}
-button{width:100%;padding:0.7rem;background:#6d7cf3;color:#fff;border:none;border-radius:7px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s}
+input[type="text"],input[type="password"]{width:100%;padding:0.65rem 0.75rem;border:1px solid #5f667c;border-radius:7px;font-size:0.95rem;background:#141720;color:#e8eaee;margin-bottom:1rem;outline:none;transition:border-color .15s cubic-bezier(.4,0,.2,1),box-shadow .15s cubic-bezier(.4,0,.2,1)}
+input:focus{border-color:#5f66e8;box-shadow:0 0 0 2px #8a97f7}
+button{width:100%;padding:0.7rem;background:#5f66e8;color:#fff;border:none;border-radius:7px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s}
 button:hover{background:#8a97f7}
 button:disabled{opacity:0.5;cursor:not-allowed}
 .err{color:#f87171;font-size:0.85rem;margin-bottom:1rem;display:none}
 </style>
-<script>(function(){try{var t=localStorage.getItem('phcloud-admin-theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');document.head.insertAdjacentHTML('beforeend','<style>body{background:#f6f7f9;color:#17191f}.card{background:#ffffff;border-color:rgba(15,17,23,.1)}.mark{background:linear-gradient(135deg,#7c8cff,#4c56d4)}label{color:#4b5563}input{background:#f3f4f7;border-color:rgba(15,17,23,.18);color:#17191f}p{color:#4b5563}</style>')}}catch(e){}})();</script>
+<script>(function(){try{var t=localStorage.getItem('phcloud-admin-theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');document.head.insertAdjacentHTML('beforeend','<style>body{background:#f6f7f9;color:#17191f}.card{background:#ffffff;border-color:rgba(15,17,23,.1)}.mark{background:linear-gradient(135deg,#7c8cff,#4c56d4)}label{color:#4b5563}input{background:#ffffff;border-color:#8b93a5;color:#17191f}p{color:#4b5563}</style>')}}catch(e){}})();</script>
 </head>
 <body>
 <div class="card">
@@ -30,7 +30,7 @@ button:disabled{opacity:0.5;cursor:not-allowed}
 <h1>Admin Login</h1>
 <p>Sign in to manage PHCloud</p>
 <form id="loginForm">
-<div class="err" id="err"></div>
+<div class="err" id="err" role="alert" aria-live="assertive"></div>
 <label for="username">Username</label>
 <input type="text" id="username" name="username" autofocus autocomplete="username" />
 <label for="password">Password</label>

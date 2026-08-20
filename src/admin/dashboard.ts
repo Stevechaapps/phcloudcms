@@ -23,7 +23,7 @@ export function dashboardBody(): string {
 <div class="stat"><div class="label">Total Posts</div><div class="value" id="total"><span class="skel" style="display:inline-block;width:56px;height:26px;vertical-align:middle"></span></div><div class="delta" id="total-delta">loading…</div></div>
 <div class="stat"><div class="label">Published</div><div class="value" id="pub"><span class="skel" style="display:inline-block;width:40px;height:26px;vertical-align:middle"></span></div><div class="delta">live on site</div></div>
 <div class="stat"><div class="label">Drafts</div><div class="value" id="drafts"><span class="skel" style="display:inline-block;width:40px;height:26px;vertical-align:middle"></span></div><div class="delta">not yet published</div></div>
-<div class="stat"><div class="label">Views <span class="seg" id="range" role="group" aria-label="Traffic range" style="margin-left:0.4rem"><button class="seg-btn" data-days="7">7d</button><button class="seg-btn active" data-days="30">30d</button><button class="seg-btn" data-days="90">90d</button></span></div><div class="value" id="views"><span class="skel" style="display:inline-block;width:56px;height:26px;vertical-align:middle"></span></div><div class="delta" id="views-delta">loading…</div></div>
+<div class="stat"><div class="label">Views <span class="seg" id="range" role="group" aria-label="Traffic range" style="margin-left:0.4rem"><button class="seg-btn" data-days="7" aria-pressed="false">7d</button><button class="seg-btn active" data-days="30" aria-pressed="true">30d</button><button class="seg-btn" data-days="90" aria-pressed="false">90d</button></span></div><div class="value" id="views"><span class="skel" style="display:inline-block;width:56px;height:26px;vertical-align:middle"></span></div><div class="delta" id="views-delta">loading…</div></div>
 </div>
 
 <div class="card mb-2">
@@ -62,7 +62,7 @@ export function dashboardBody(): string {
 <script>
 function renderAdminPage(page,totalPages){var nav=document.getElementById('pagination');if(totalPages<=1){nav.innerHTML='';return}
 var h='';if(page>1)h+='<a href="?page='+(page-1)+'" class="btn btn-sm btn-ghost">← Prev</a>';
-for(var i=1;i<=totalPages;i++){if(i===page)h+='<span class="btn btn-sm btn-primary" style="pointer-events:none">'+i+'</span>';else h+='<a href="?page='+i+'" class="btn btn-sm btn-ghost">'+i+'</a>'}
+for(var i=1;i<=totalPages;i++){if(i===page)h+='<span class="btn btn-sm btn-primary" style="pointer-events:none" aria-current="page">'+i+'</span>';else h+='<a href="?page='+i+'" class="btn btn-sm btn-ghost">'+i+'</a>'}
 if(page<totalPages)h+='<a href="?page='+(page+1)+'" class="btn btn-sm btn-ghost">Next →</a>';nav.innerHTML=h}
 function ea(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function fmt(n){return n==null?0:Number(n).toLocaleString()}
@@ -98,7 +98,7 @@ var svgEl=document.getElementById('spark').querySelector('svg');if(svgEl){reques
 var top=document.getElementById('top');
 if(!(d.top||[]).length){top.innerHTML='<tr><td colspan="3" class="empty">No views recorded yet.</td></tr>';return}
 top.innerHTML=d.top.map(function(p){return '<tr><td><span class="cell-title">'+ea(p.title||p.slug)+'</span><div class="cell-dim">/'+ea(p.slug)+'</div></td><td><span class="badge badge-info">'+ea(p.type)+'</span></td><td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">'+fmt(p.views)+'</td></tr>'}).join('')}).catch(function(e){console.error('loadStats failed',e);document.getElementById('spark').innerHTML='<div class="empty" style="padding:2rem">Could not load traffic stats.</div>';})}
-document.getElementById('range').addEventListener('click',function(e){var b=e.target.closest?e.target.closest('.seg-btn'):null;if(!b)return;var btns=this.querySelectorAll('.seg-btn');for(var i=0;i<btns.length;i++)btns[i].classList.remove('active');b.classList.add('active');loadStats(Number(b.getAttribute('data-days')))});
+document.getElementById('range').addEventListener('click',function(e){var b=e.target.closest?e.target.closest('.seg-btn'):null;if(!b)return;var btns=this.querySelectorAll('.seg-btn');for(var i=0;i<btns.length;i++){btns[i].classList.remove('active');btns[i].setAttribute('aria-pressed','false')}b.classList.add('active');b.setAttribute('aria-pressed','true');loadStats(Number(b.getAttribute('data-days')))});
 function loadPosts(){var m=location.search.match(/[?&]page=(\d+)/);var page=m?parseInt(m[1],10):1;if(!page||page<1)page=1;
 fetch('/api/admin/posts?page='+page).then(function(r){if(r.status===401){window.location.href='/admin/login';return null;}if(!r.ok)throw new Error('posts');return r.json();}).then(function(data){if(!data)return;
 document.getElementById('total').textContent=data.total;

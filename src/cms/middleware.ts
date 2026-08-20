@@ -72,7 +72,7 @@ function serveOnboardingUI(c: Context): Response {
         label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.35rem; }
         input[type="text"], input[type="password"] {
           width: 100%; padding: 0.65rem;
-          border: 1px solid #cbd5e1; border-radius: 4px;
+          border: 1px solid #64748b; border-radius: 4px;
           font-size: 1rem; margin-bottom: 1rem;
         }
         label.check { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; margin-bottom: 1rem; }
@@ -85,10 +85,11 @@ function serveOnboardingUI(c: Context): Response {
           margin-top: 0.5rem;
         }
         button:hover { background: #1d4ed8; }
-        .err { color: #dc2626; font-size: 0.85rem; margin-top: 0.75rem; display: none; }
+        .err { color: #b91c1c; font-size: 0.85rem; margin-top: 0.75rem; display: none; }
       </style>
     </head>
     <body>
+      <main>
       <div class="card">
         <h1>📦 PHCloud CMS Setup</h1>
         <p class="sub">Your code is live on Cloudflare Workers. Configure your site and create your admin account.</p>
@@ -111,9 +112,10 @@ function serveOnboardingUI(c: Context): Response {
             Auto-Generate XML Sitemap
           </label>
           <button type="submit">Initialize Core Systems</button>
-          <div class="err" id="err"></div>
+          <div class="err" id="err" role="alert" aria-live="assertive"></div>
         </form>
       </div>
+      </main>
       <script>
         const form = document.getElementById('installForm');
         const errEl = document.getElementById('err');

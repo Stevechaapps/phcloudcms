@@ -220,7 +220,7 @@ export function registerPublicRoutes(app: App): void {
         bodyHtml += renderPagination(page, totalPages, "/search", { q });
       } else {
         bodyHtml +=
-          '<p style="color:var(--text-muted)">No results found for "' +
+          '<p style="color:var(--ink-2)">No results found for "' +
           esc(q) +
           '"</p>';
       }
@@ -256,13 +256,21 @@ export function registerPublicRoutes(app: App): void {
   app.get("/tag/:slug", async (c) => {
     const db = c.env.DB;
     const tagSlug = c.req.param("slug");
+    const settings = (await getCached(
+      c,
+      "cms:settings",
+      600,
+      async () => await getAllSettings(db),
+    )) as Record<string, string>;
+    const siteName = settings.site_name ?? "My Site";
+    const siteLogo = settings.site_logo ?? null;
     const tag = await db
       .prepare("SELECT id, name FROM tags WHERE slug = ?")
       .bind(tagSlug)
       .first<{ id: number; name: string }>();
     if (!tag)
       return c.html(
-        '<h1>Tag not found</h1><p><a href="/">Go home</a></p>',
+        shellFull(siteName, "", '<h1>Tag not found</h1><p><a href="/">Go home</a></p>', [], siteLogo),
         404,
       );
 
@@ -288,20 +296,6 @@ export function registerPublicRoutes(app: App): void {
         updated_at: string;
       }>();
 
-    // Cache the full settings OBJECT under "cms:settings", matching the
-    // catch-all/feed/search routes. Caching a bare string here used the same
-    // key with a different value type: if the homepage warmed the cache first
-    // (object) this route read back an object, passed it to esc() →
-    // "x.replace is not a function" → 500 on every /tag/:slug. Same key,
-    // same type, same fetcher kills the race. (ponytail: fix once at the key.)
-    const settings = (await getCached(
-      c,
-      "cms:settings",
-      600,
-      async () => await getAllSettings(db),
-    )) as Record<string, string>;
-    const siteName = settings.site_name ?? "My Site";
-    const siteLogo = settings.site_logo ?? null;
     const bodyHtml =
       '<h1 style="margin-bottom:1rem">' +
       esc(tag.name) +
@@ -418,7 +412,7 @@ export function registerPublicRoutes(app: App): void {
       }
       if (!post)
         return c.html(
-          '<h1>404 — Not found</h1><p><a href="/">Go home</a></p>',
+          shellFull(siteName, "", '<h1>404 — Not found</h1><p><a href="/">Go home</a></p>', nav, siteLogo),
           404,
         );
 

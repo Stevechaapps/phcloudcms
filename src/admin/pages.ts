@@ -2,7 +2,7 @@
 
 import { esc } from "../cms/escape.js";
 import { sanitizePostHtml } from "../cms/sanitize.js";
-import { EDITOR_FORMAT_SCRIPTS, PASTE_IMAGE_SCRIPT, DROP_IMAGE_SCRIPT } from "./editor.js";
+import { EDITOR_FORMAT_SCRIPTS, PASTE_IMAGE_SCRIPT, DROP_IMAGE_SCRIPT, RTE_TOOLBAR } from "./editor.js";
 
 export function pagesBody(): string {
   return `<div class="page-head">
@@ -33,13 +33,13 @@ function del(id){if(!confirm('Delete this page?'))return;fetch('/api/admin/pages
 }
 
 export function newPageBody(): string {
-  return `<h2 style="margin-bottom:1.5rem">New Page</h2>
+  return `<h1 style="margin-bottom:1.5rem">New Page</h1>
 <form id="form" style="max-width:800px">
 <div class="row">
 <div class="form-group"><label for="title">Title</label><input type="text" id="title" name="title" required /></div>
 <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required placeholder="about" /></div>
 </div>
-<div class="form-group"><label for="content">Content <span style="color:var(--text-2);font-weight:400">(Rich text)</span></label><div class="toolbar"><button type="button" onmousedown="event.preventDefault();rteHead('<p>')" title="Paragraph" aria-label="Paragraph">¶</button><button type="button" onmousedown="event.preventDefault();rteCmd('bold')" title="Bold" aria-label="Bold"><strong>B</strong></button><button type="button" onmousedown="event.preventDefault();rteCmd('italic')" title="Italic" aria-label="Italic"><em>I</em></button><span class="sep"></span><button type="button" onmousedown="event.preventDefault();rteHead('<h2>')" title="Heading 2" aria-label="Heading 2">H2</button><button type="button" onmousedown="event.preventDefault();rteHead('<h3>')" title="Heading 3" aria-label="Heading 3">H3</button><span class="sep"></span><button type="button" onmousedown="event.preventDefault();rteCmd('justifyLeft')" title="Align left" aria-label="Align left">Left</button><button type="button" onmousedown="event.preventDefault();rteCmd('justifyCenter')" title="Align center" aria-label="Align center">Center</button><button type="button" onmousedown="event.preventDefault();rteCmd('justifyRight')" title="Align right" aria-label="Align right">Right</button><button type="button" onmousedown="event.preventDefault();rteCmd('justifyFull')" title="Justify" aria-label="Justify">Justify</button><span class="sep"></span><button type="button" onmousedown="rteLink(event)" title="Link" aria-label="Insert link">Link</button><button type="button" onmousedown="rteImg(event)" title="Image by URL" aria-label="Insert image by URL">Img</button><span class="sep"></span><button type="button" onmousedown="event.preventDefault();rteHead('<blockquote>')" title="Blockquote" aria-label="Insert blockquote">Quote</button><button type="button" onmousedown="event.preventDefault();rteCmd('insertUnorderedList')" title="List item" aria-label="Insert list item">List</button><button type="button" onmousedown="event.preventDefault();rteCmd('insertOrderedList')" title="Numbered list" aria-label="Numbered list">1.</button></div><div id="editor-wrap" style="min-height:320px"><div id="content" class="rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Page content" data-ph="Write your page…"></div></div></div>
+<div class="form-group"><label for="content">Content <span style="color:var(--text-2);font-weight:400">(Rich text)</span></label><div class="toolbar">${RTE_TOOLBAR}</div><div id="editor-wrap" style="min-height:320px"><div id="content" class="rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Page content" aria-describedby="status" data-ph="Write your page…"></div></div></div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" checked /> Published</label></div>
 <div style="display:flex;gap:0.75rem">
 <button type="submit" class="btn btn-primary">Save Page</button>
@@ -55,11 +55,11 @@ titleEl.addEventListener('input',function(){if(slugEl.dataset.touched)return;slu
 document.getElementById('form').addEventListener('submit',function(e){
 e.preventDefault();
 var status=document.getElementById('status');
-status.style.color='#2563eb';
+status.style.color='var(--accent)';
 status.textContent='Saving…';
 var fd=new FormData(e.target);
 var contentEl=document.getElementById('content');
-if(!contentEl.textContent.trim()&&!contentEl.querySelector('img')){status.style.color='#dc2626';status.textContent='Content is required';return}
+if(!contentEl.textContent.trim()&&!contentEl.querySelector('img')){status.style.color='var(--danger)';status.textContent='Content is required';return}
 fetch('/api/admin/pages',{
 method:'POST',
 headers:{'Content-Type':'application/json'},
@@ -70,9 +70,9 @@ content:contentEl.innerHTML,
 published:document.getElementById('published').checked
 })}).then(function(res){
 if(res.ok){
-status.style.color='#16a34a';
+status.style.color='var(--ok)';
 status.textContent='Saved!';setTimeout(function(){location.href='/admin/pages'},500)}
-else{status.style.color='#dc2626';status.textContent='Error saving page'}})});
+else{status.style.color='var(--danger)';status.textContent='Error saving page'}})});
 </script>
 <script>${EDITOR_FORMAT_SCRIPTS}</script>
 <script>${PASTE_IMAGE_SCRIPT}</script>
@@ -89,13 +89,13 @@ export function editPageBody(page: {
 }): string {
   var id = String(page.id);
   var checked = page.published == 1 || page.published === "1" ? "checked" : "";
-  return `<h2 style="margin-bottom:1.5rem">Edit Page</h2>
+  return `<h1 style="margin-bottom:1.5rem">Edit Page</h1>
 <form id="form" style="max-width:800px">
 <div class="row">
 <div class="form-group"><label for="title">Title</label><input type="text" id="title" name="title" required value="${esc(page.title)}" /></div>
 <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" required value="${esc(page.slug)}" /></div>
 </div>
-<div class="form-group"><label for="content">Content <span style="color:var(--text-2);font-weight:400">(Rich text)</span></label><div class="toolbar"><button type="button" onmousedown="event.preventDefault();rteHead('<p>')" title="Paragraph" aria-label="Paragraph">¶</button><button type="button" onmousedown="event.preventDefault();rteCmd('bold')" title="Bold" aria-label="Bold"><strong>B</strong></button><button type="button" onmousedown="event.preventDefault();rteCmd('italic')" title="Italic" aria-label="Italic"><em>I</em></button><span class="sep"></span><button type="button" onmousedown="event.preventDefault();rteHead('<h2>')" title="Heading 2" aria-label="Heading 2">H2</button><button type="button" onmousedown="event.preventDefault();rteHead('<h3>')" title="Heading 3" aria-label="Heading 3">H3</button><span class="sep"></span><button type="button" onmousedown="event.preventDefault();rteCmd('justifyLeft')" title="Align left" aria-label="Align left">Left</button><button type="button" onmousedown="event.preventDefault();rteCmd('justifyCenter')" title="Align center" aria-label="Align center">Center</button><button type="button" onmousedown="event.preventDefault();rteCmd('justifyRight')" title="Align right" aria-label="Align right">Right</button><button type="button" onmousedown="event.preventDefault();rteCmd('justifyFull')" title="Justify" aria-label="Justify">Justify</button><span class="sep"></span><button type="button" onmousedown="rteLink(event)" title="Link" aria-label="Insert link">Link</button><button type="button" onmousedown="rteImg(event)" title="Image by URL" aria-label="Insert image by URL">Img</button><span class="sep"></span><button type="button" onmousedown="event.preventDefault();rteHead('<blockquote>')" title="Blockquote" aria-label="Insert blockquote">Quote</button><button type="button" onmousedown="event.preventDefault();rteCmd('insertUnorderedList')" title="List item" aria-label="Insert list item">List</button><button type="button" onmousedown="event.preventDefault();rteCmd('insertOrderedList')" title="Numbered list" aria-label="Numbered list">1.</button></div><div id="editor-wrap" style="min-height:320px"><div id="content" class="rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Page content" data-ph="Write your page…">${sanitizePostHtml(page.content)}</div></div></div>
+<div class="form-group"><label for="content">Content <span style="color:var(--text-2);font-weight:400">(Rich text)</span></label><div class="toolbar">${RTE_TOOLBAR}</div><div id="editor-wrap" style="min-height:320px"><div id="content" class="rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Page content" aria-describedby="status" data-ph="Write your page…">${sanitizePostHtml(page.content)}</div></div></div>
 <div class="form-group"><label><input type="checkbox" id="published" name="published" ${checked} /> Published</label></div>
 <div style="font-size:0.8rem;color:var(--text-2);margin-bottom:1rem">Last updated: ${esc(page.updated_at)}</div>
 <div style="display:flex;gap:0.75rem">
@@ -112,11 +112,11 @@ titleEl.addEventListener('input',function(){if(slugEl.dataset.touched)return;slu
 document.getElementById('form').addEventListener('submit',function(e){
 e.preventDefault();
 var status=document.getElementById('status');
-status.style.color='#2563eb';
+status.style.color='var(--accent)';
 status.textContent='Saving…';
 var fd=new FormData(e.target);
 var contentEl=document.getElementById('content');
-if(!contentEl.textContent.trim()&&!contentEl.querySelector('img')){status.style.color='#dc2626';status.textContent='Content is required';return}
+if(!contentEl.textContent.trim()&&!contentEl.querySelector('img')){status.style.color='var(--danger)';status.textContent='Content is required';return}
 fetch('/api/admin/pages/${id}',{
 method:'PATCH',
 headers:{'Content-Type':'application/json'},
@@ -126,8 +126,8 @@ slug:String(fd.get('slug')||''),
 content:contentEl.innerHTML,
 published:document.getElementById('published').checked
 })}).then(function(res){
-if(res.ok){status.style.color='#16a34a';status.textContent='Updated!';setTimeout(function(){location.href='/admin/pages'},500)}
-else{status.style.color='#dc2626';status.textContent='Error updating page'}})});
+if(res.ok){status.style.color='var(--ok)';status.textContent='Updated!';setTimeout(function(){location.href='/admin/pages'},500)}
+else{status.style.color='var(--danger)';status.textContent='Error updating page'}})});
 </script>
 <script>${EDITOR_FORMAT_SCRIPTS}</script>
 <script>${PASTE_IMAGE_SCRIPT}</script>

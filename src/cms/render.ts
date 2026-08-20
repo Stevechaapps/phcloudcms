@@ -80,7 +80,7 @@ export function shellFull(
     (siteLogo
       ? '<img src="' + esc(siteLogo) + '" alt="' + esc(siteName) + '" style="height:38px;width:auto;vertical-align:middle;max-width:260px"/>'
       : '<span class="brand-name">' + esc(siteName) + '</span>') +
-    '</a><nav><form action="/search" method="get" class="search-wrap" role="search"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.4" y2="16.4"/></svg><input type="text" name="q" placeholder="Search" aria-label="Search site"></form>' +
+    '</a><nav><form action="/search" method="get" class="search-wrap" role="search"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.4" y2="16.4"/></svg><input type="text" name="q" placeholder="Search" aria-label="Search site"></form>' +
     navHtml +
     // Toggle is a sibling of <nav>, not inside it: the mobile CSS hides
     // header nav (display:none under 768px) to save space, so a toggle
@@ -156,7 +156,7 @@ export function renderHomepage(
     '<div class="meta-row"><span>' +
     postCount +
     (postCount === 1 ? " post</span>" : " posts</span>") +
-    '<span class="dot">·</span><a href="/feed.xml">RSS</a><span class="dot">·</span><a href="/sitemap.xml">Sitemap</a><span class="dot">·</span><a href="/llms.txt">llms.txt</a></div>';
+    '<span class="dot" aria-hidden="true">·</span><a href="/feed.xml">RSS</a><span class="dot" aria-hidden="true">·</span><a href="/sitemap.xml">Sitemap</a></div>';
   return (
     '<section class="hero"><div class="kicker">Edge-published on Cloudflare</div><h1>' +
     esc(siteName) +
@@ -234,7 +234,7 @@ export function renderPagination(
     return basePath + (qs ? "?" + qs : "");
   };
   let html =
-    '<nav style="display:flex;justify-content:center;gap:0.5rem;margin-top:3rem;align-items:center">';
+    '<nav aria-label="Pagination" style="display:flex;justify-content:center;gap:0.5rem;margin-top:3rem;align-items:center;flex-wrap:wrap">';
   if (page > 1)
     html +=
       '<a href="' +
@@ -246,7 +246,7 @@ export function renderPagination(
   for (let i = startPage; i <= endPage; i++) {
     if (i === page) {
       html +=
-        '<span style="padding:0.4rem 0.8rem;background:var(--accent);color:#fff;border-radius:6px;font-weight:600">' +
+        '<span aria-current="page" style="padding:0.4rem 0.8rem;background:var(--accent);color:#fdfcf9;border-radius:6px;font-weight:600">' +
         i +
         "</span>";
     } else {

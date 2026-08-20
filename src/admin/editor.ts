@@ -16,10 +16,36 @@ export const SCHEDULE_TOGGLE_SCRIPT = `function scheduleToggle(){var s=document.
 // the server, phLocalFromUtc converts the stored UTC back to local values.
 export const SCHEDULER_SCRIPT = `function phIso(dv,hv,mv,ampm){if(!dv||hv===void 0||mv===void 0)return null;var h=Number(hv);if(ampm==='PM'&&h!==12)h+=12;if(ampm==='AM'&&h===12)h=0;var d=new Date(dv+'T'+(h<10?'0':'')+h+':'+(mv<10?'0':'')+mv);if(isNaN(d.getTime()))return null;return d.toISOString()}function phLocalFromUtc(iso){if(!iso)return null;var d=new Date(iso);if(isNaN(d.getTime()))return null;var h=d.getHours(),a='AM';if(h>=12){a='PM';if(h>12)h-=12}if(h===0)h=12;return{date:d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate(),hour:h,minute:d.getMinutes(),ampm:a}}`;
 
+// Shared toolbar markup (used by the post editor in editor-body.ts and the
+// page editor in pages.ts). Every button has onmousedown="event.preventDefault()"
+// (clicking never blurs the editable and drops the selection the command acts
+// on) and the command itself on onclick — which fires for BOTH mouse clicks
+// and Enter/Space presses, making the toolbar keyboard-operable (WCAG 2.1.1).
+export const RTE_TOOLBAR =
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteHead(\'<p>\')" title="Paragraph" aria-label="Paragraph">¶</button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteCmd(\'bold\')" title="Bold" aria-label="Bold"><strong>B</strong></button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteCmd(\'italic\')" title="Italic" aria-label="Italic"><em>I</em></button>' +
+  '<span class="sep"></span>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteHead(\'<h2>\')" title="Heading 2" aria-label="Heading 2">H2</button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteHead(\'<h3>\')" title="Heading 3" aria-label="Heading 3">H3</button>' +
+  '<span class="sep"></span>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteCmd(\'justifyLeft\')" title="Align left" aria-label="Align left">Left</button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteCmd(\'justifyCenter\')" title="Align center" aria-label="Align center">Center</button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteCmd(\'justifyRight\')" title="Align right" aria-label="Align right">Right</button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteCmd(\'justifyFull\')" title="Justify" aria-label="Justify">Justify</button>' +
+  '<span class="sep"></span>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteLink(event)" title="Link" aria-label="Insert link">Link</button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteImg(event)" title="Image by URL" aria-label="Insert image by URL">Img</button>' +
+  '<span class="sep"></span>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteHead(\'<blockquote>\')" title="Blockquote" aria-label="Insert blockquote">Quote</button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteCmd(\'insertUnorderedList\')" title="List item" aria-label="Insert list item">List</button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteCmd(\'insertOrderedList\')" title="Numbered list" aria-label="Numbered list">1.</button>';
+
 // Toolbar commands + a selection save/restore used across the async image
 // upload. Toolbar buttons call these from onmousedown (with preventDefault so
 // clicking a button never blurs the editable and drops the selection the
-// command acts on). (DOM: #content, a contenteditable div.)
+// command acts on) AND from onclick, so the buttons are also fully operable
+// from the keyboard (Enter/Space fire click). (DOM: #content, a contenteditable div.)
 export const EDITOR_FORMAT_SCRIPTS = `function rteCmd(c){document.execCommand(c,false,null);rteSync()}
 function rteHead(h){document.execCommand('formatBlock',false,h);rteSync()}
 function rteEsc(s){return String(s).replace(/&/g,'&'+'amp;').replace(/</g,'&'+'lt;').replace(/>/g,'&'+'gt;').replace(/"/g,'&'+'quot;')}
@@ -33,7 +59,8 @@ if(!u){alert('Use an http(s) or mailto: URL.');return}
 if(hasSel){document.execCommand('createLink',false,u);rteSync();return}
 var t=prompt('Link text (shown for the link):',u);if(t===null)return;if(!t)t=u;
 document.execCommand('insertHTML',false,'<a href="'+rteEsc(u)+'">'+rteEsc(t)+'</a>');rteSync()}
-function rteImg(e){e.preventDefault();var u=prompt('Image URL:','');if(u)document.execCommand('insertImage',false,u)}
+function rteImg(e){e.preventDefault();var u=prompt('Image URL:','');if(u){document.execCommand('insertImage',false,u);rteAlt()}}
+function rteAlt(){var c=document.getElementById('content');if(!c)return;var imgs=c.querySelectorAll('img');if(!imgs.length)return;var img=imgs[imgs.length-1];if(img.hasAttribute('alt'))return;var a=prompt('Alt text (describe the image; leave empty if decorative):','');img.setAttribute('alt',a==null?'':a)}
 function rteSave(c){try{return window.getSelection().getRangeAt(0).cloneRange()}catch(x){var r=document.createRange();r.selectNodeContents(c);r.collapse(false);return r}}
 function rteRestore(c,r){c.focus();var s=window.getSelection();s.removeAllRanges();s.addRange(r)}
 // Reflect the selection's formatting back onto the toolbar buttons so the user
@@ -55,7 +82,7 @@ document.addEventListener('selectionchange',rteSync)`;
 export const PASTE_IMAGE_SCRIPT = `var contentEl=document.getElementById('content');
 contentEl.addEventListener('paste',function(e){var files=e.clipboardData.files;if(!files.length)return;var file=files[0];if(!file.type.startsWith('image/'))return;e.preventDefault();var saved=rteSave(contentEl);uploadImage(file,contentEl,saved,'paste.webp')});
 function uploadImage(file,c,saved,fallbackName){
-var status=document.getElementById('status');status.style.color='#2563eb';status.textContent='Processing image…';
+var status=document.getElementById('status');status.style.color='var(--accent)';status.textContent='Processing image…';
 var reader=new FileReader();
 reader.onload=function(ev){var img=new Image();img.onload=function(){
 var MAX_W=1200,w=img.width,h=img.height;if(w>MAX_W){h=Math.round(h*MAX_W/w);w=MAX_W}
@@ -63,14 +90,14 @@ var cv=document.createElement('canvas');cv.width=w;cv.height=h;var ctx=cv.getCon
 function go(blob){var r2=new FileReader();r2.onload=function(ev2){var dataUrl=ev2.target.result;status.textContent='Uploading…';
 fetch('/api/admin/images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:dataUrl,filename:file.name||fallbackName})})
 .then(function(r){return r.json()}).then(function(res){
-if(res.url){rteRestore(c,saved);document.execCommand('insertImage',false,res.url);status.style.color='#16a34a';status.textContent='Image uploaded'}
-else{status.style.color='#dc2626';status.textContent=res.error||'Upload failed'}})
-.catch(function(){status.style.color='#dc2626';status.textContent='Upload error'})};r2.readAsDataURL(blob)}
+if(res.url){rteRestore(c,saved);document.execCommand('insertImage',false,res.url);rteAlt();status.style.color='var(--ok)';status.textContent='Image uploaded'}
+else{status.style.color='var(--danger)';status.textContent=res.error||'Upload failed'}})
+.catch(function(){status.style.color='var(--danger)';status.textContent='Upload error'})};r2.readAsDataURL(blob)}
 // toBlob passes null on browsers that can't encode WebP (older Safari/mobile);
 // readAsDataURL(null) threw in the async callback and hung the spinner
 // silently — this was why pasting/dropping an image into the editor never
 // uploaded. Fall back to PNG, which every browser encodes.
-cv.toBlob(function(blob){if(blob){go(blob);return}cv.toBlob(function(b2){if(b2)go(b2);else{status.style.color='#dc2626';status.textContent='Could not encode image'}},'image/png')},'image/webp',0.7)};
+cv.toBlob(function(blob){if(blob){go(blob);return}cv.toBlob(function(b2){if(b2)go(b2);else{status.style.color='var(--danger)';status.textContent='Could not encode image'}},'image/png')},'image/webp',0.7)};
 img.src=ev.target.result};
 reader.readAsDataURL(file)}`;
 
@@ -79,7 +106,7 @@ reader.readAsDataURL(file)}`;
 // image lands where the user dropped it.
 export const DROP_IMAGE_SCRIPT = `(function(){
 var c=document.getElementById('content'),wrap=document.getElementById('editor-wrap');
-wrap.addEventListener('dragover',function(e){e.preventDefault();wrap.style.outline='2px dashed #3b82f6';wrap.style.outlineOffset='-2px'},false);
+wrap.addEventListener('dragover',function(e){e.preventDefault();wrap.style.outline='2px dashed var(--accent)';wrap.style.outlineOffset='-2px'},false);
 wrap.addEventListener('dragleave',function(){wrap.style.outline='';wrap.style.outlineOffset=''},false);
 wrap.addEventListener('drop',function(e){e.preventDefault();wrap.style.outline='';wrap.style.outlineOffset='';var files=e.dataTransfer.files;if(!files.length)return;var file=files[0];if(!file.type.startsWith('image/'))return;c.focus();var saved=rteSave(c);uploadImage(file,c,saved,'drop.webp')},false);
 })();`;

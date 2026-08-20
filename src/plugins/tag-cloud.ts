@@ -24,22 +24,19 @@ const tagCloudHook: PluginHook = async (payload) => {
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   let cloud =
-    '<div style="margin-top:3rem;padding-top:1.5rem;border-top:1px solid #e5e7eb">' +
-    '<h3 style="font-size:0.9rem;color:#64748b;margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.05em">Tags</h3>' +
+    '<div style="margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border-strong)">' +
+    '<h3 style="font-size:0.9rem;color:var(--ink-3);margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.05em;font-family:var(--font-mono)">Tags</h3>' +
     '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">';
 
   for (const tag of rows.results) {
     const weight = tag.cnt / maxCnt;
-    const size = 0.75 + weight * 0.45;
-    const opacity = 0.6 + weight * 0.4;
+    const size = 0.8 + weight * 0.5;
     cloud +=
       '<a href="/tag/' +
       esc(tag.slug) +
       '" style="font-size:' +
       size.toFixed(2) +
-      'rem;opacity:' +
-      opacity.toFixed(2) +
-      ';color:#3b82f6;text-decoration:none;display:inline-block">' +
+      'rem;color:var(--accent);text-decoration:none;display:inline-block;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent);transition:color .15s ease">' +
       esc(tag.name) +
       ' (' +
       tag.cnt +

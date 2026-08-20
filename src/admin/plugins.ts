@@ -71,7 +71,9 @@ export function pluginsBody(
       html +=
         '<input type="checkbox" class="plugin-toggle" data-plugin="' +
         esc(pl.id) +
-        '"';
+        '" aria-label="Toggle ' +
+        esc(pl.name) +
+        ' plugin"';
       html += isActive ? " checked" : "";
       html += " />";
       html +=

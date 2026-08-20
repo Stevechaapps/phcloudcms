@@ -5,7 +5,7 @@
 
 import { esc } from "../cms/escape.js";
 import { sanitizePostHtml } from "../cms/sanitize.js";
-import { SCHEDULE_TOGGLE_SCRIPT, SCHEDULER_SCRIPT, EDITOR_FORMAT_SCRIPTS, PASTE_IMAGE_SCRIPT, DROP_IMAGE_SCRIPT } from "./editor.js";
+import { SCHEDULE_TOGGLE_SCRIPT, SCHEDULER_SCRIPT, EDITOR_FORMAT_SCRIPTS, PASTE_IMAGE_SCRIPT, DROP_IMAGE_SCRIPT, RTE_TOOLBAR } from "./editor.js";
 
 // ── Editor page CSS (page-local; the shell CSS stays generic) ──────
 const EDITOR_CSS = `
@@ -14,7 +14,7 @@ const EDITOR_CSS = `
 .aside{display:flex;flex-direction:column;gap:1rem;position:sticky;top:72px}
 .aside-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
 .aside-card h3{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);font-weight:600;margin-bottom:0.75rem}
-.title-input{font-size:1.35rem;font-weight:600;letter-spacing:-0.02em;padding:0.65rem 0.75rem;border:none;background:transparent;border-bottom:1px solid var(--border-2);border-radius:0;color:var(--text)}
+.title-input{font-size:1.35rem;font-weight:600;letter-spacing:-0.02em;padding:0.65rem 0.75rem;border:none;background:transparent;border-bottom:1px solid var(--input-border);border-radius:0;color:var(--text)}
 .title-input:focus{box-shadow:none;border-bottom-color:var(--accent)}
 .slug-row{display:flex;align-items:center;gap:0.4rem;margin:0.6rem 0 1.25rem;color:var(--text-3);font-size:0.85rem}
 .slug-row span{font-family:var(--mono)}
@@ -39,7 +39,7 @@ const EDITOR_CSS = `
 .pv-btn.active{background:var(--accent);color:var(--accent-ink)}
 .ai-wrap{position:relative}
 .ai-btn{color:var(--accent)}
-.ai-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:230px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:0.35rem;display:flex;flex-direction:column;gap:2px}
+.ai-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:230px;background:var(--surface);border:1px solid var(--input-border);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:0.35rem;display:flex;flex-direction:column;gap:2px}
 .ai-menu[hidden]{display:none}
 .ai-menu button{background:none;border:none;text-align:left;padding:0.5rem 0.65rem;border-radius:var(--radius-sm);font-size:0.82rem;color:var(--text-2);cursor:pointer;font-weight:500;display:flex;justify-content:space-between;gap:0.75rem;align-items:center;width:100%}
 .ai-menu button:hover{background:var(--surface-2);color:var(--text)}
@@ -82,9 +82,9 @@ $('metaTitle').addEventListener('input',seoSnippet);$('metaDesc').addEventListen
 function buildPreview(force){var body={title:titleEl.value,content:contentEl.innerHTML};
 clearTimeout(editorState.previewTimer);var go=function(){fetch('/api/admin/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.text()}).then(function(html){$('previewFrame').srcdoc=html;$('previewFrame').onload=function(){setStatus('')}}).catch(function(){setStatus('Preview failed','var(--danger)')})};
 if(force){go()}else{editorState.previewTimer=setTimeout(go,300)}}
-$('previewBtn').addEventListener('click',function(){var p=$('previewPane');if(p.hidden){p.hidden=false;document.body.style.overflow='hidden';buildPreview(true)}else{closePreview()}});
+$('previewBtn').addEventListener('click',function(){var p=$('previewPane');if(p.hidden){p.hidden=false;document.body.style.overflow='hidden';buildPreview(true);var c=$('previewClose');if(c)c.focus()}else{closePreview()}});
 $('previewClose').addEventListener('click',closePreview);
-function closePreview(){$('previewPane').hidden=true;document.body.style.overflow=''}
+function closePreview(){$('previewPane').hidden=true;document.body.style.overflow='';var pb=$('previewBtn');if(pb)pb.focus()}
 // ── preview viewport switcher (desktop / tablet / mobile) + refresh ──
 var pvBtns=document.querySelectorAll('.pv-btn');for(var i=0;i<pvBtns.length;i++){(function(b){b.addEventListener('click',function(){for(var j=0;j<pvBtns.length;j++)pvBtns[j].classList.remove('active');b.classList.add('active');var m=b.getAttribute('data-mode');var f=$('previewFrame');f.classList.toggle('tablet',m==='tablet');f.classList.toggle('mobile',m==='mobile')})})(pvBtns[i])}
 $('pvRefresh').addEventListener('click',function(){buildPreview(true);setStatus('Refreshing preview…','var(--accent)')});
@@ -98,7 +98,7 @@ function clearDraft(){try{localStorage.removeItem(editorState.draftKey)}catch(e)
 function restoreDraft(d){titleEl.value=d.title||'';if(d.slug){slugEl.value=d.slug;slugEl.dataset.touched='1'}contentEl.innerHTML=d.content||'';if(d.excerpt!=null)$('excerpt').value=d.excerpt;if(d.metaTitle!=null)$('metaTitle').value=d.metaTitle;if(d.metaDesc!=null)$('metaDesc').value=d.metaDesc;seoSnippet();buildPreview(true);toast('Draft restored','ok')}
 function checkDraft(){if(!editorState.draftKey)return;var raw=null;try{raw=localStorage.getItem(editorState.draftKey)}catch(e){}if(!raw)return;var d=null;try{d=JSON.parse(raw)}catch(e){return}
 var cur=JSON.stringify(draftData());if(JSON.stringify(d)===cur||JSON.stringify(d)===editorState.initial)return;
-$('autosave').hidden=false;$('autosaveTitle').textContent='Unsaved draft found from your last session.';$('autosaveRestore').onclick=function(){restoreDraft(d);$('autosave').hidden=true};$('autosaveDiscard').onclick=function(){clearDraft();$('autosave').hidden=true}}
+$('autosave').hidden=false;$('autosaveTitle').textContent='Unsaved draft found from your last session.';$('autosaveRestore').onclick=function(){restoreDraft(d);$('autosave').hidden=true};$('autosaveDiscard').onclick=function(){clearDraft();$('autosave').hidden=true};$('autosaveRestore').focus()}
 // ── version history ──
 function loadVersions(){if(!editorState.id)return;fetch('/api/admin/posts/'+editorState.id+'/versions').then(function(r){return r.json()}).then(function(vs){
 var box=$('versionList');if(!vs.length){box.innerHTML='<div class="dim" style="font-size:0.8rem">No versions yet — each save records one.</div>';return}
@@ -107,8 +107,8 @@ function restoreVersion(vid){if(!confirm('Restore this version? Current content 
 fetch('/api/admin/posts/'+editorState.id+'/versions/'+vid+'/restore',{method:'POST'}).then(function(r){return r.json()}).then(function(res){
 if(res.ok){titleEl.value=res.post.title;contentEl.innerHTML=res.post.content;$('excerpt').value=res.post.excerpt;slugEl.value=$('slug').value;seoSnippet();buildPreview(true);loadVersions();toast('Version restored','ok')}else{toast('Restore failed','err')}}).catch(function(){toast('Restore failed','err')})}
 // ── AI writing assistant (Phase 3b) ──
-function aiToggle(){var m=$('aiMenu');if(m.hidden){m.hidden=false}else{m.hidden=true}}
-function aiClose(){if($('aiMenu'))$('aiMenu').hidden=true}
+function aiToggle(){var m=$('aiMenu');var b=$('aiBtn');if(m.hidden){m.hidden=false;if(b)b.setAttribute('aria-expanded','true');var first=m.querySelector('button');if(first&&!first.disabled)first.focus()}else{m.hidden=true;if(b){b.setAttribute('aria-expanded','false');b.focus()}}}
+function aiClose(){var m=$('aiMenu');if(m)m.hidden=true;var b=$('aiBtn');if(b)b.setAttribute('aria-expanded','false')}
 function aiBusy(on){var bs=document.querySelectorAll('#aiMenu button');for(var i=0;i<bs.length;i++)bs[i].disabled=on;var b=$('aiBtn');if(b)b.disabled=on}
 function refreshUsage(){fetch('/api/admin/ai/usage').then(function(r){return r.json()}).then(function(u){
 var el=$('aiMeter');if(!el)return;var pct=Math.round(100*u.remaining/u.limit);
@@ -132,10 +132,12 @@ if(kind==='continue'){var p=document.createElement('p');p.textContent=d.text;con
 if(kind==='summarize'){$('excerpt').value=d.text.slice(0,255);setStatus('Excerpt generated','var(--ok)')}
 if(kind==='rewrite'){document.execCommand('insertText',false,d.text);buildPreview();setStatus('Rewritten — save to keep','var(--ok)')}
 if(kind==='titles'){var box=$('aiSuggest');box.innerHTML='';var ts=d.titles||[];if(!ts.length){box.innerHTML='<div class="dim" style="font-size:0.78rem">No titles returned.</div>';return}
-for(var i=0;i<ts.length;i++){(function(t){var b=document.createElement('button');b.type='button';b.textContent=t;b.onclick=function(){titleEl.value=t;slugEl.value='';slugEl.dataset.touched='';box.innerHTML='';aiClose();toast('Title set — slug auto-generated','ok')};box.appendChild(b)})(ts[i])}}
+for(var i=0;i<ts.length;i++){(function(t){var b=document.createElement('button');b.type='button';b.textContent=t;b.onclick=function(){titleEl.value=t;slugEl.value='';slugEl.dataset.touched='';box.innerHTML='';aiClose();toast('Title set — slug auto-generated','ok')};box.appendChild(b)})(ts[i])}
+var sb=box.querySelector('button');if(sb)sb.focus()}
 if(kind==='meta'){if(d.meta_title)$('metaTitle').value=d.meta_title;if(d.meta_description)$('metaDesc').value=d.meta_description;seoSnippet();setStatus('SEO meta generated','var(--ok)')}
 }).catch(function(){aiBusy(false);setStatus('AI request failed','var(--danger)')})}
 document.addEventListener('click',function(e){if($('aiMenu')&&!e.target.closest('.ai-wrap'))aiClose()});
+document.addEventListener('keydown',function(e){if(e.key!=='Escape')return;var ai=$('aiMenu');if(ai&&!ai.hidden){e.preventDefault();aiClose();var b=$('aiBtn');if(b)b.focus();return}var pv=$('previewPane');if(pv&&!pv.hidden){e.preventDefault();closePreview()}});
 // ── submit ──
 $('form').addEventListener('submit',function(e){
 e.preventDefault();
@@ -188,7 +190,7 @@ function editorPage(title: string, mode: "new" | "edit", p: EditorPost): string 
 <button type="submit" form="form" class="btn btn-primary">Save Post</button>
 </div>
 </div>
-<div class="autosave-banner" id="autosave" hidden>
+<div class="autosave-banner" id="autosave" hidden role="status" aria-live="polite">
 <span id="autosaveTitle"></span>
 <div class="flex">
 <button type="button" class="btn btn-sm btn-primary" id="autosaveRestore">Restore</button>
@@ -198,35 +200,19 @@ function editorPage(title: string, mode: "new" | "edit", p: EditorPost): string 
 <form id="form" autocomplete="off">
 <div class="editor-grid">
 <div class="editor-main">
-<input type="text" id="title" class="title-input" placeholder="Post title" value="${esc(p.title)}" required />
-<div class="slug-row"><span>/</span><input type="text" id="slug" name="slug" placeholder="my-slug" value="${esc(p.slug)}" style="flex:1" required /></div>
+<input type="text" id="title" class="title-input" placeholder="Post title" aria-label="Post title" value="${esc(p.title)}" required />
+<div class="slug-row"><span aria-hidden="true">/</span><input type="text" id="slug" name="slug" placeholder="my-slug" aria-label="Slug" value="${esc(p.slug)}" style="flex:1" required /></div>
 <div class="form-group"><label for="excerpt">Excerpt <span class="hint">(optional, max 255 chars — shows in post lists)</span></label><textarea id="excerpt" name="excerpt" rows="3" maxlength="255" style="min-height:0;resize:none">${esc(p.excerpt ?? "")}</textarea></div>
 <div class="form-group" style="margin-bottom:0">
 <div class="toolbar">
-<button type="button" onmousedown="event.preventDefault();rteHead('<p>')" title="Paragraph" aria-label="Paragraph">¶</button><button type="button" onmousedown="event.preventDefault();rteCmd('bold')" title="Bold" aria-label="Bold"><strong>B</strong></button>
-<button type="button" onmousedown="event.preventDefault();rteCmd('italic')" title="Italic" aria-label="Italic"><em>I</em></button>
-<span class="sep"></span>
-<button type="button" onmousedown="event.preventDefault();rteHead('<h2>')" title="Heading 2" aria-label="Heading 2">H2</button>
-<button type="button" onmousedown="event.preventDefault();rteHead('<h3>')" title="Heading 3" aria-label="Heading 3">H3</button>
-<span class="sep"></span>
-<button type="button" onmousedown="event.preventDefault();rteCmd('justifyLeft')" title="Align left" aria-label="Align left">Left</button>
-<button type="button" onmousedown="event.preventDefault();rteCmd('justifyCenter')" title="Align center" aria-label="Align center">Center</button>
-<button type="button" onmousedown="event.preventDefault();rteCmd('justifyRight')" title="Align right" aria-label="Align right">Right</button>
-<button type="button" onmousedown="event.preventDefault();rteCmd('justifyFull')" title="Justify" aria-label="Justify">Justify</button>
-<span class="sep"></span>
-<button type="button" onmousedown="rteLink(event)" title="Link" aria-label="Insert link">Link</button>
-<button type="button" onmousedown="rteImg(event)" title="Image by URL" aria-label="Insert image by URL">Img</button>
-<span class="sep"></span>
-<button type="button" onmousedown="event.preventDefault();rteHead('<blockquote>')" title="Blockquote" aria-label="Insert blockquote">Quote</button>
-<button type="button" onmousedown="event.preventDefault();rteCmd('insertUnorderedList')" title="List item" aria-label="Insert list item">List</button>
-<button type="button" onmousedown="event.preventDefault();rteCmd('insertOrderedList')" title="Numbered list" aria-label="Numbered list">1.</button>
+${RTE_TOOLBAR}
 <span class="sep"></span>
 <div class="ai-wrap">
-<button type="button" id="aiBtn" class="ai-btn" onmousedown="event.preventDefault();aiToggle()" title="AI writing assistant" aria-haspopup="true">✦ AI</button>
+<button type="button" id="aiBtn" class="ai-btn" onmousedown="event.preventDefault()" onclick="aiToggle()" title="AI writing assistant" aria-haspopup="menu" aria-expanded="false" aria-controls="aiMenu">✦ AI</button>
 <div class="ai-menu" id="aiMenu" hidden>
 <button type="button" onclick="aiAct('continue')">Continue writing</button>
 <button type="button" onclick="aiAct('summarize')">Summarize for excerpt</button>
-<div class="ai-tone-row"><select id="aiTone"><option value="clear">Clear</option><option value="professional">Professional</option><option value="concise">Concise</option><option value="engaging">Engaging</option></select><button type="button" onclick="aiAct('rewrite')">Rewrite</button></div>
+<div class="ai-tone-row"><select id="aiTone" aria-label="Rewrite tone"><option value="clear">Clear</option><option value="professional">Professional</option><option value="concise">Concise</option><option value="engaging">Engaging</option></select><button type="button" onclick="aiAct('rewrite')">Rewrite</button></div>
 <button type="button" onclick="aiAct('titles')">Suggest titles</button>
 <button type="button" onclick="aiAct('meta')">Generate SEO meta</button>
 <div id="aiSuggest" class="ai-suggest"></div>
@@ -234,7 +220,7 @@ function editorPage(title: string, mode: "new" | "edit", p: EditorPost): string 
 </div>
 </div>
 <div id="editor-wrap" style="min-height:340px">
-<div id="content" class="rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Post content" data-ph="Write your post…">${sanitizePostHtml(p.content)}</div>
+<div id="content" class="rte" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Post content" aria-describedby="status" data-ph="Write your post…">${sanitizePostHtml(p.content)}</div>
 </div>
 </div>
 <div id="status" style="margin-top:1rem;font-size:0.9rem" aria-live="polite" role="status"></div>
@@ -245,10 +231,10 @@ function editorPage(title: string, mode: "new" | "edit", p: EditorPost): string 
 <label class="check" style="margin-bottom:0.75rem"><input type="checkbox" id="published" name="published" ${checked} /> Published</label>
 <label class="check"><input type="checkbox" id="schedule" onchange="scheduleToggle()" ${scheduleChecked} /> Schedule for later</label>
 <div style="margin-top:0.6rem;display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
-<input type="date" id="publish_date" name="publish_date" style="${hasSchedule ? "display:inline-block" : "display:none"}" />
-<select id="publish_hour" name="publish_hour" style="${hasSchedule ? "display:inline-block" : "display:none"};width:auto"><option value="">HH</option>${hourOpts}</select>
-<select id="publish_minute" name="publish_minute" style="${hasSchedule ? "display:inline-block" : "display:none"};width:auto"><option value="">MM</option>${minOpts}</select>
-<select id="publish_ampm" name="publish_ampm" style="${hasSchedule ? "display:inline-block" : "display:none"};width:auto"><option value="AM">AM</option><option value="PM">PM</option></select>
+<input type="date" id="publish_date" name="publish_date" aria-label="Publish date" style="${hasSchedule ? "display:inline-block" : "display:none"}" />
+<select id="publish_hour" name="publish_hour" aria-label="Publish hour" style="${hasSchedule ? "display:inline-block" : "display:none"};width:auto"><option value="">HH</option>${hourOpts}</select>
+<select id="publish_minute" name="publish_minute" aria-label="Publish minute" style="${hasSchedule ? "display:inline-block" : "display:none"};width:auto"><option value="">MM</option>${minOpts}</select>
+<select id="publish_ampm" name="publish_ampm" aria-label="AM or PM" style="${hasSchedule ? "display:inline-block" : "display:none"};width:auto"><option value="AM">AM</option><option value="PM">PM</option></select>
 </div>
 ${previewLink ? '<div class="mt-2" style="font-size:0.82rem"><a href="' + esc(previewLink) + '" target="_blank" rel="noopener">Preview unpublished post ↗</a></div>' : ""}
 ${mode === "edit" ? '<div class="dim" style="font-size:0.75rem;margin-top:0.75rem">Updated: ' + esc(p.updated_at) + "</div>" : ""}

@@ -11,11 +11,12 @@ export function settingsBody(): string {
 <div class="form-group"><label for="siteName">Site Name</label><input type="text" id="siteName" required /></div>
 <div class="form-group"><label for="seoDescription">Site Description <span class="hint">(meta description)</span></label><input type="text" id="seoDescription" /></div>
 <div class="form-group">
-<label>Site Logo</label>
+<label for="logoFile">Site Logo</label>
 <div id="logoPreview" style="margin-bottom:0.5rem"></div>
 <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp" />
 <p class="dim" style="font-size:0.8rem;margin-top:0.4rem">Recommended: a wide, short logo (about <strong>600×200px</strong>, PNG with transparency). Shrunk to 600px wide and re-encoded to lossless PNG if larger; logos already ≤600px are stored as-is.</p>
 </div>
+<div class="form-group"><label class="check"><input type="checkbox" id="shortcuts" /> Enable single-key shortcuts (g, n, t, ?)</label><p class="dim" style="font-size:0.8rem;margin-top:0.3rem">Single-key shortcuts trigger actions without a modifier. Turn off for screen-reader or keyboard-only use.</p></div>
 <h2 style="font-size:1.05rem;font-weight:600;letter-spacing:-0.02em;margin:2rem 0 1rem">AI Writing Assistant</h2>
 <p class="muted" style="font-size:0.85rem;margin-bottom:1rem">The in-editor AI uses these guidelines as its house style for Continue, Summarize, Rewrite, and SEO meta. Free tier: ~1,000+ AI calls per day at no cost.</p>
 <div class="form-group"><label for="aiGuidelines">Content guidelines</label><textarea id="aiGuidelines" rows="6" placeholder="e.g. Second person, short sentences, no jargon, active voice, 60–80 words per section."></textarea></div>
@@ -38,11 +39,12 @@ export function settingsBody(): string {
 <h3 style="color:var(--warn);margin-bottom:0.5rem;font-weight:600">Reset Site</h3>
 <p class="muted" style="font-size:0.9rem;margin-bottom:1rem">Erases all posts, pages, tags, images, settings, and admin accounts, then returns you to the setup wizard. This cannot be undone.</p>
 <button type="button" id="resetBtn" class="btn" style="background:var(--danger);color:#fff">Reset & Start Over</button>
-<span id="resetStatus" style="margin-left:0.75rem;font-size:0.9rem"></span>
+<span id="resetStatus" style="margin-left:0.75rem;font-size:0.9rem" role="status" aria-live="polite"></span>
 </div>
 </div>
 <script>
 function genToken(){var a=new Uint8Array(24);crypto.getRandomValues(a);var s='';var chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';for(var i=0;i<a.length;i++)s+=chars[a[i]%chars.length];document.getElementById('mcpToken').value='ph_'+s;toast('Token generated — save to apply','ok')}
+(function(){var sc=document.getElementById('shortcuts');try{sc.checked=localStorage.getItem('phcloud-shortcuts')!=='off'}catch(e){sc.checked=true}sc.addEventListener('change',function(){try{localStorage.setItem('phcloud-shortcuts',sc.checked?'on':'off')}catch(e){}toast('Shortcuts '+(sc.checked?'enabled':'disabled'),'ok')})})();
 fetch('/api/admin/settings').then(function(r){return r.json()}).then(function(s){
 document.getElementById('siteName').value=s.site_name||'';
 document.getElementById('seoDescription').value=s.seo_description||'';
