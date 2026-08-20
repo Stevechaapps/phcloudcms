@@ -182,7 +182,7 @@ export function registerMcpRoute(app: App): void {
     const sessionId = c.req.query("session_id") ?? c.req.query("session") ?? "";
     if (sessionId) {
       const session = await c.env.CACHE.get("mcp:session:" + sessionId);
-      if (!session) return c.json(rpcError(null, -32001, "Invalid or expired session"), 401);
+      if (!session) return c.json(rpcError(null, -32001, "Invalid or expired session"), 404);
     }
 
     // DNS-rebinding protection: if Origin is present it must be same-origin.
