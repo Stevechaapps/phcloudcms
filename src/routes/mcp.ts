@@ -151,7 +151,8 @@ export function registerMcpRoute(app: App): void {
 
       const sessionId = crypto.randomUUID();
       const endpoint = new URL(c.req.url);
-      const endpoint.searchParams.set("session_id", sessionId);
+      endpoint.searchParams.set("session_id", sessionId);
+      
       // We emit both a sessioned URL for legacy discovery and a bare URL
       // because some opencode versions strip query params before POSTing.
       await c.env.CACHE.put("mcp:session:" + sessionId, "active", { expirationTtl: 3600 });
@@ -164,7 +165,7 @@ export function registerMcpRoute(app: App): void {
           controller.enqueue(enc.encode("event: endpoint\ndata: {\"url\":\"" + bareUrl.toString() + "\"}\n\n"));
           controller.enqueue(enc.encode("data: " + bareUrl.toString() + "\n\n"));
           let interval: ReturnType<typeof setInterval> | null = null;
-          const cleanup = () => { if (interval) clearInterval(interval); c.env.CACHE.delete("mcp:session:" + sessionId); };
+          const cleanup = () => { if (interval) clearInterval(interval); c.env.CACHE.delete("mcpsession:" + sessionId); };
           interval = setInterval(() => { try { controller.enqueue(enc.encode(": keep-alive\n\n")); } catch { cleanup(); } }, 15000);
         },
         pull() { },
@@ -181,7 +182,7 @@ export function registerMcpRoute(app: App): void {
     // Optional session validation: opencode might send session_id or session.
     const sessionId = c.req.query("session_id") ?? c.req.query("session") ?? "";
     if (sessionId) {
-      const session = await c.env.CACHE.get("mcp:session:" + sessionId);
+      const session = await c.env.CACHE.get("mcpsession:" + sessionId);
       if (!session) return c.json(rpcError(null, -32001, "Invalid or expired session"), 404);
     }
 
@@ -235,7 +236,7 @@ export function registerMcpRoute(app: App): void {
     // ── Method dispatch ──
     if (method === "initialize") {
       const sessionId = crypto.randomUUID();
-      await c.env.CACHE.put("mcp:session:" + sessionId, "active", { expirationTtl: 3600 });
+      await c.env.CACHE.put("mcpsession:" + sessionId, "active", { expirationTtl: 3600 });
       const res = c.json({
         jsonrpc: "2.0",
         id,
