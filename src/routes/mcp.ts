@@ -19,7 +19,7 @@ import { getStats } from "../cms/stats.js";
 import type { Context } from "hono";
 
 const PROTOCOL_VERSION = "2026-07-28";
-const SERVER_INFO = { name: "phcloud-cms", version: "1.0.0" };
+const SERVER_INFO = { name: "phcloud-cms", version: "1.1.0" };
 const TTL_MS = 300000;
 
 type MCPCtx = Context<{ Bindings: import("../cms/env.js").Env; Variables: import("../cms/env.js").Variables }>;
@@ -158,11 +158,13 @@ export function registerMcpRoute(app: App): void {
       const body = new ReadableStream({
         start(controller) {
           const enc = new TextEncoder();
-          controller.enqueue(enc.encode("event: endpoint\ndata: " + JSON.stringify({ url: endpoint.toString() }) + "\n\n"));
+          controller.enqueue(enc.encode("event: endpoint\ndata: {\"url\":\"" + endpoint.toString() + "\"}\n\n"));
+          controller.enqueue(enc.encode("data: " + endpoint.toString() + "\n\n"));
           let interval: ReturnType<typeof setInterval> | null = null;
           const cleanup = () => { if (interval) clearInterval(interval); c.env.CACHE.delete("mcp:session:" + sessionId); };
           interval = setInterval(() => { try { controller.enqueue(enc.encode(": keep-alive\n\n")); } catch { cleanup(); } }, 15000);
         },
+        pull() { },
         cancel() { c.env.CACHE.delete("mcp:session:" + sessionId); },
       });
 
@@ -228,6 +230,26 @@ export function registerMcpRoute(app: App): void {
     }
 
     // ── Method dispatch ──
+    if (method === "initialize") {
+      const sessionId = crypto.randomUUID();
+      await c.env.CACHE.put("mcp:session:" + sessionId, "active", { expirationTtl: 3600 });
+      const res = c.json({
+        jsonrpc: "2.0",
+        id,
+        result: {
+          protocolVersion: PROTOCOL_VERSION,
+          capabilities: { tools: {} },
+          server: SERVER_INFO,
+        },
+      });
+      res.headers.set("mcp-session-id", sessionId);
+      return res;
+    }
+
+    if (method === "initialized") {
+      return c.body(null, 202);
+    }
+
     if (method === "server/discover") {
       return c.json({
         jsonrpc: "2.0",
