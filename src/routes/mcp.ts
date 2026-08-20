@@ -151,15 +151,18 @@ export function registerMcpRoute(app: App): void {
 
       const sessionId = crypto.randomUUID();
       const endpoint = new URL(c.req.url);
-      endpoint.searchParams.set("session_id", sessionId);
-
+      const endpoint.searchParams.set("session_id", sessionId);
+      // We emit both a sessioned URL for legacy discovery and a bare URL
+      // because some opencode versions strip query params before POSTing.
       await c.env.CACHE.put("mcp:session:" + sessionId, "active", { expirationTtl: 3600 });
 
       const body = new ReadableStream({
         start(controller) {
           const enc = new TextEncoder();
-          controller.enqueue(enc.encode("event: endpoint\ndata: {\"url\":\"" + endpoint.toString() + "\"}\n\n"));
-          controller.enqueue(enc.encode("data: " + endpoint.toString() + "\n\n"));
+          const bareUrl = new URL(c.req.url);
+          bareUrl.searchParams.delete("session_id");
+          controller.enqueue(enc.encode("event: endpoint\ndata: {\"url\":\"" + bareUrl.toString() + "\"}\n\n"));
+          controller.enqueue(enc.encode("data: " + bareUrl.toString() + "\n\n"));
           let interval: ReturnType<typeof setInterval> | null = null;
           const cleanup = () => { if (interval) clearInterval(interval); c.env.CACHE.delete("mcp:session:" + sessionId); };
           interval = setInterval(() => { try { controller.enqueue(enc.encode(": keep-alive\n\n")); } catch { cleanup(); } }, 15000);
@@ -175,8 +178,8 @@ export function registerMcpRoute(app: App): void {
 
     if (c.req.method !== "POST") return c.json(rpcError(null, -32601, "Method not found"), 405);
 
-    // Optional session validation: opencode sends session_id back in the URL.
-    const sessionId = c.req.query("session_id") ?? "";
+    // Optional session validation: opencode might send session_id or session.
+    const sessionId = c.req.query("session_id") ?? c.req.query("session") ?? "";
     if (sessionId) {
       const session = await c.env.CACHE.get("mcp:session:" + sessionId);
       if (!session) return c.json(rpcError(null, -32001, "Invalid or expired session"), 401);
