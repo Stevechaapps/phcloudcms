@@ -3,6 +3,14 @@ compatibility_date = "2026-07-14"
 main = "src/index.ts"
 workers_dev = true
 
+# ── Static Assets ──────────────────────────────────────────────────
+# Self-hosted fonts + favicon, served from the edge before the Worker
+# runs (no origin round-trip, free tier). Everything else falls through
+# to the Worker.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
 # ── D1 Database ─────────────────────────────────────────────────────
 # Replace <YOUR_D1_DATABASE_ID> with your actual D1 database ID.
 # Get it from: Cloudflare Dashboard → D1 SQL database → click your db → copy the ID.

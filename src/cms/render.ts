@@ -67,7 +67,7 @@ export function shellFull(
     .join("");
 
   return (
-    '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="generator" content="PHCloud CMS" /><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc" /><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a" /><title>' +
+    '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="generator" content="PHCloud CMS" /><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f4ef" /><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" /><link rel="icon" type="image/svg+xml" href="/favicon.svg" /><title>' +
     esc(siteName) +
     '</title><link rel="sitemap" type="application/xml" href="/sitemap.xml" /><link rel="alternate" type="application/rss+xml" title="' +
     esc(siteName) +
@@ -76,22 +76,24 @@ export function shellFull(
     "</style>" +
     headMarkup +
     THEME_INIT_SCRIPT +
-    '</head><body><a href="#main" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0">Skip to content</a><header><div class="inner"><a href="/" class="site-name">' +
+    '</head><body><a href="#main" class="sr-only">Skip to content</a><header><div class="inner"><a href="/" class="brand">' +
     (siteLogo
-      ? '<img src="' + esc(siteLogo) + '" alt="' + esc(siteName) + '" style="height:58px;width:auto;vertical-align:middle;max-width:320px"/>'
-      : esc(siteName)) +
-    '</a><nav><form action="/search" method="get" class="search-wrap" role="search"><input type="text" name="q" placeholder="Search..." aria-label="Search site"></form>' +
+      ? '<img src="' + esc(siteLogo) + '" alt="' + esc(siteName) + '" style="height:38px;width:auto;vertical-align:middle;max-width:260px"/>'
+      : '<span class="brand-name">' + esc(siteName) + '</span>') +
+    '</a><nav><form action="/search" method="get" class="search-wrap" role="search"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.4" y2="16.4"/></svg><input type="text" name="q" placeholder="Search" aria-label="Search site"></form>' +
     navHtml +
     // Toggle is a sibling of <nav>, not inside it: the mobile CSS hides
     // header nav (display:none under 768px) to save space, so a toggle
     // inside the nav would vanish on phones. As a direct child of .inner
-    // it stays reachable; .inner's space-between gives logo-left /
+    // it stays reachable; .inner's space-between gives brand-left /
     // nav-center / toggle-right on desktop.
     "</nav>" +
     THEME_TOGGLE_BTN +
     '</div></header><main id="main">' +
     bodyHtml +
-    '</main><footer><div class="inner"><p class="colophon">Powered by <a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">PHCloud CMS</a> on <a href="https://cloudflare.com" target="_blank" rel="noopener">Cloudflare</a> · <a href="/admin" rel="nofollow">Manage</a></p></div></footer>' +
+    '</main><footer><div class="inner"><div class="wordmark" aria-hidden="true">' +
+    esc(siteName) +
+    '</div><p class="colophon">Published with <a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">PHCloud CMS</a> on Cloudflare · <a href="/feed.xml" rel="noopener">RSS</a> · <a href="/sitemap.xml" rel="noopener">Sitemap</a> · <a href="/llms.txt" rel="noopener">llms.txt</a> · <a href="/admin" rel="nofollow">Manage</a></p></div></footer>' +
     PROGRESS_SCRIPT +
     THEME_TOGGLE_SCRIPT +
     '</body></html>'
@@ -113,9 +115,23 @@ function formatDate(iso: string): string {
   });
 }
 
-export function renderPost(post: Post): string {
+export function renderPost(post: Post, tags?: { name: string; slug: string }[]): string {
+  const tagsHtml = tags && tags.length
+    ? '<span class="tags">' +
+      tags
+        .map(
+          (t) =>
+            '<a class="tag-pill" href="/tag/' +
+            esc(t.slug) +
+            '">' +
+            esc(t.name) +
+            "</a>",
+        )
+        .join("") +
+      "</span>"
+    : "";
   return (
-    "<h1 style=\"margin-bottom:0.5rem\">" +
+    '<article class="post"><nav class="back-link"><a href="/">Index</a></nav><h1 class="post-title">' +
     esc(post.title) +
     '</h1><div class="post-meta"><time datetime="' +
     esc(post.updated_at) +
@@ -123,17 +139,32 @@ export function renderPost(post: Post): string {
     formatDate(post.updated_at) +
     "</time><span aria-hidden=\"true\">·</span><span>" +
     readingTime(post.content) +
-    ' min read</span></div><div class="post-content">' +
+    ' min read</span>' +
+    tagsHtml +
+    '</div><div class="post-content">' +
     sanitizePostHtml(post.content) +
-    "</div>"
+    "</div></article>"
   );
 }
 
-export function renderHomepage(siteName: string): string {
+export function renderHomepage(
+  siteName: string,
+  description: string,
+  postCount: number,
+): string {
+  const meta =
+    '<div class="meta-row"><span>' +
+    postCount +
+    (postCount === 1 ? " post</span>" : " posts</span>") +
+    '<span class="dot">·</span><a href="/feed.xml">RSS</a><span class="dot">·</span><a href="/sitemap.xml">Sitemap</a><span class="dot">·</span><a href="/llms.txt">llms.txt</a></div>';
   return (
-    '<div class="site-title"><h1>' +
+    '<section class="hero"><div class="kicker">Edge-published on Cloudflare</div><h1>' +
     esc(siteName) +
-    '</h1><p>Welcome to my digital garden. Explore posts, thoughts, and guides below.</p></div>'
+    "</h1><p class=\"lede\">" +
+    esc(description || "A PHCloud site — fast, free, and built to read.") +
+    "</p>" +
+    meta +
+    "</section>"
   );
 }
 
@@ -141,37 +172,51 @@ export function renderPostList(
   posts: { slug: string; title: string; excerpt: string; updated_at: string }[],
   siteName: string,
 ): string {
-  if (!posts.length) return renderHomepage(siteName);
-  let html =
-    '<div class="post-list">';
-  for (const p of posts) {
-    const date = formatDate(p.updated_at);
-    html +=
-      '<article class="post-card">';
-    html +=
-      '<div class="meta"><time datetime="' +
-      esc(p.updated_at) +
-      '">' +
-      date +
-      "</time></div>";
-    html +=
-      '<h2><a href="/' +
-      esc(p.slug) +
-      '">' +
-      esc(p.title) +
-      '</a></h2>';
-    if (p.excerpt)
+  if (!posts.length) return "";
+  const shortDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+    });
+  let html = siteName
+    ? '<div class="list-head"><h2>Latest</h2><span>' +
+      posts.length +
+      (posts.length === 1 ? " entry</span></div>" : " entries</span></div>")
+    : "";
+  const [first, ...rest] = posts;
+  html +=
+    '<a class="post-featured" href="/' +
+    esc(first.slug) +
+    '"><div class="f-meta"><time datetime="' +
+    esc(first.updated_at) +
+    '">' +
+    formatDate(first.updated_at) +
+    "</time></div><h2 class=\"f-title\">" +
+    esc(first.title) +
+    '</h2>' +
+    (first.excerpt ? '<p class="f-excerpt">' + esc(first.excerpt) + "</p>" : "") +
+    '<span class="f-link">Read</span></a>';
+  if (rest.length) {
+    html += '<div class="post-list">';
+    for (let i = 0; i < rest.length; i++) {
+      const p = rest[i];
       html +=
-        '<div class="excerpt">' +
-        esc(p.excerpt) +
-        '</div>';
-    html +=
-      '<a href="/' +
-      esc(p.slug) +
-      '" class="read-more">Read more →</a>';
-    html += "</article>";
+        '<article class="post-row"><a href="/' +
+        esc(p.slug) +
+        '"><span class="idx">' +
+        String(i + 2).padStart(2, "0") +
+        '</span><span class="row-body"><span class="row-title">' +
+        esc(p.title) +
+        "</span>" +
+        (p.excerpt ? '<span class="row-excerpt">' + esc(p.excerpt) + "</span>" : "") +
+        '</span><time class="row-date" datetime="' +
+        esc(p.updated_at) +
+        '">' +
+        shortDate(p.updated_at) +
+        "</time></a></article>";
+    }
+    html += "</div>";
   }
-  html += "</div>";
   return html;
 }
 
