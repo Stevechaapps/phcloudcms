@@ -43,6 +43,8 @@ PHCloud is a self-hosted CMS designed for exactly **one site** — your blog, po
 | MCP server | ✅ | ❌ | ❌ | ❌ |
 | Self-hosted | On your Cloudflare account | Your server | Your server | Git provider |
 | Theme system | 1 file, swap theme in seconds | PHP themes | Handlebars | Static site |
+| Lighthouse (text pages) | **95–100** | 60–85 | 70–90 | 80–95 |
+| Image handling | Client-side WebP compress before upload | Server-side plugins | Manual | Static/CDN only |
 
 ---
 
