@@ -13,11 +13,30 @@ const ADMIN_JS = `function toast(msg,kind){kind=kind||'info';var wrap=document.g
 function setAdminTheme(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('phcloud-admin-theme',t)}catch(e){}var b=document.getElementById('theme-toggle');if(b)b.setAttribute('aria-label',t==='dark'?'Switch to light mode':'Switch to dark mode')}
 function adminTheme(){var t=document.documentElement.getAttribute('data-theme');if(t==='dark'||t==='light')return t;return (window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches)?'light':'dark'}
 function toggleAdminTheme(){setAdminTheme(adminTheme()==='dark'?'light':'dark')}
-function paletteOpen(){var p=document.getElementById('palette');p.classList.add('open');var i=document.getElementById('palette-input');i.value='';i.focus();renderPalette('')}
-function paletteClose(){document.getElementById('palette').classList.remove('open')}
-function renderPalette(q){q=(q||'').toLowerCase();var list=document.getElementById('palette-list');var items=window.__palette||[];var h='';for(var i=0;i<items.length;i++){var it=items[i];if(q&&(it.label.toLowerCase().indexOf(q)<0)&&(it.hint||'').toLowerCase().indexOf(q)<0)continue;h+='<a href="'+it.href+'" class="palette-item" tabindex="-1"><span>'+it.icon+'</span><span class="pi-label">'+it.label+'</span>'+(it.hint?'<span class="pi-hint">'+it.hint+'</span>':'')+(it.kbd?'<kbd>'+it.kbd+'</kbd>':'')+'</a>'}list.innerHTML=h||'<div class="palette-empty">No matches</div>'}
-document.addEventListener('keydown',function(e){var k=(e.ctrlKey||e.metaKey)&&e.key;if(k==='k'){e.preventDefault();paletteOpen()}else if(k==='s'&&(e.target.tagName==='BODY'||e.target.isContentEditable)){e.preventDefault();var f=document.getElementById('form');if(f)f.requestSubmit?f.requestSubmit():f.submit()}});
-function paletteKey(e){if(e.key==='Escape'){paletteClose();return}if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var items=document.querySelectorAll('#palette-list .palette-item');if(!items.length)return;var idx=0;for(var j=0;j<items.length;j++){if(items[j].classList.contains('focused')){items[j].classList.remove('focused');idx=j;break}}idx+=e.key==='ArrowDown'?1:-1;if(idx<0)idx=items.length-1;if(idx>=items.length)idx=0;items[idx].classList.add('focused');items[idx].focus()}else if(e.key==='Enter'){var foc=document.activeElement;if(foc&&foc.classList&&foc.classList.contains('palette-item')){window.location.href=foc.getAttribute('href')}}else{renderPalette(document.getElementById('palette-input').value)}}`;
+// ── command palette: links + actions, subsequence fuzzy search, keyboard nav ──
+function fuzzy(q,s){s=s.toLowerCase();var i=0;for(var j=0;j<s.length&&i<q.length;j++){if(q[i]===s[j])i++}return i===q.length}
+function paletteOpen(){var p=document.getElementById('palette');if(p.classList.contains('open'))return;p.classList.add('open');window.__paletteAnchor=document.activeElement;var b=document.getElementById('palette-btn');if(b)b.setAttribute('aria-expanded','true');var i=document.getElementById('palette-input');i.value='';renderPalette('');i.focus()}
+function paletteClose(){var p=document.getElementById('palette');if(!p.classList.contains('open'))return;p.classList.remove('open');var b=document.getElementById('palette-btn');if(b)b.setAttribute('aria-expanded','false');var a=window.__paletteAnchor;if(a&&a.focus)a.focus();window.__paletteAnchor=null}
+function renderPalette(q){q=(q||'').toLowerCase();var list=document.getElementById('palette-list');var items=window.__palette||[];var h='';for(var i=0;i<items.length;i++){var it=items[i];var hay=(it.label+' '+(it.hint||'')+' '+(it.kbd||'')).toLowerCase();if(q&&hay.indexOf(q)<0&&!fuzzy(q,it.label))continue;if(it.action){h+='<button type="button" class="palette-item" data-action="'+it.action+'" tabindex="-1"><span>'+it.icon+'</span><span class="pi-label">'+it.label+'</span>'+(it.hint?'<span class="pi-hint">'+it.hint+'</span>':'')+(it.kbd?'<kbd>'+it.kbd+'</kbd>':'')+'</button>'}else{h+='<a href="'+it.href+'" class="palette-item" tabindex="-1"><span>'+it.icon+'</span><span class="pi-label">'+it.label+'</span>'+(it.hint?'<span class="pi-hint">'+it.hint+'</span>':'')+(it.kbd?'<kbd>'+it.kbd+'</kbd>':'')+'</a>'}}list.innerHTML=h||'<div class="palette-empty">No matches</div>'}
+function paletteAction(a){if(a==='theme'){paletteClose();toggleAdminTheme()}else if(a==='logout'){logout()}else if(a==='help'){paletteClose();toast('Shortcuts: Ctrl+K palette · g then d/p/n/t/i/s navigate · n new post · t theme · Ctrl+S save','info')}}
+document.addEventListener('keydown',function(e){var pal=document.getElementById('palette');var isOpen=pal.classList.contains('open');
+// ── palette is open: own every key (filter via input event) ──
+if(isOpen){if(e.key==='Escape'){e.preventDefault();paletteClose();return}
+var items=document.querySelectorAll('#palette-list .palette-item');
+if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='Tab'){e.preventDefault();if(!items.length)return;var idx=0;for(var j=0;j<items.length;j++){if(items[j].classList.contains('focused')){items[j].classList.remove('focused');idx=j;break}}idx+=e.key==='ArrowUp'?(-1):(e.key==='Tab'?(e.shiftKey?-1:1):1);if(idx<0)idx=items.length-1;if(idx>=items.length)idx=0;items[idx].classList.add('focused');items[idx].focus();return}
+if(e.key==='Enter'){var foc=document.activeElement;if(foc&&foc.classList&&foc.classList.contains('palette-item')){if(foc.getAttribute('data-action')){paletteAction(foc.getAttribute('data-action'))}else{window.location.href=foc.getAttribute('href')}}return}
+return}
+var k=(e.key||'').toLowerCase();var tag=(e.target.tagName||'').toLowerCase();var typing=(tag==='input'||tag==='textarea'||tag==='select'||e.target.isContentEditable);
+if((e.ctrlKey||e.metaKey)&&k==='k'){e.preventDefault();paletteOpen();return}
+if((e.ctrlKey||e.metaKey)&&k==='s'&&(tag==='body'||e.target.isContentEditable)){e.preventDefault();var f=document.getElementById('form');if(f)f.requestSubmit?f.requestSubmit():f.submit();return}
+if(typing)return;
+var prevG=window.__gk||false;window.__gk=false;
+if(k==='g'){window.__gk=true;e.preventDefault();return}
+if(prevG){var map={d:'/admin',p:'/admin/posts',n:'/admin/new',t:'/admin/tags',i:'/admin/images',s:'/admin/settings'};if(map[k]){window.location.href=map[k];e.preventDefault()}return}
+if(k==='?'){e.preventDefault();paletteOpen();return}
+if(k==='n'){window.location.href='/admin/new';e.preventDefault();return}
+if(k==='t'){toggleAdminTheme();e.preventDefault();return}});
+document.getElementById('palette-list').addEventListener('click',function(e){var b=e.target.closest?e.target.closest('.palette-item'):null;if(b&&b.getAttribute('data-action')){paletteAction(b.getAttribute('data-action'))}});`;
 
 // ── Nav ─────────────────────────────────────────────────────────────
 type NavItem = { href: string; label: string; icon: keyof typeof I; kbd?: string };
@@ -56,9 +75,19 @@ const NAV: NavItem[] = [
 ];
 
 function paletteItems(): string {
-  return JSON.stringify(
-    NAV.map((n) => ({ href: n.href, label: n.label, icon: icon(n.icon, "ic-sm"), kbd: n.kbd })),
+  const items: { href?: string; action?: string; label: string; icon: string; kbd: string }[] = NAV.map((n) => ({
+    href: n.href,
+    label: n.label,
+    icon: icon(n.icon, "ic-sm"),
+    kbd: n.kbd ?? "",
+  }));
+  items.push(
+    { href: "/", label: "View Site", icon: icon("ext", "ic-sm"), kbd: "g g" },
+    { action: "theme", label: "Toggle color theme", icon: icon("sun", "ic-sm"), kbd: "t" },
+    { action: "help", label: "Keyboard shortcuts", icon: icon("bolt", "ic-sm"), kbd: "?" },
+    { action: "logout", label: "Log out", icon: icon("out", "ic-sm"), kbd: "" },
   );
+  return JSON.stringify(items);
 }
 
 // ── CSS ──────────────────────────────────────────────────────────────
@@ -158,8 +187,22 @@ const STYLES = [
   ".palette-item{display:flex;align-items:center;gap:0.7rem;padding:0.55rem 0.7rem;border-radius:var(--radius-sm);color:var(--text-2);font-size:0.9rem}.palette-item .ic{width:17px;height:17px;color:var(--text-3)}.palette-item .pi-label{flex:1;font-weight:500}.palette-item .pi-hint{font-size:0.78rem;color:var(--text-3)}.palette-item:hover,.palette-item.focused{background:var(--surface-2);color:var(--text)}.palette-item.focused{outline:none;box-shadow:inset 0 0 0 1px var(--accent)}",
   ".palette-empty{padding:1.5rem;text-align:center;color:var(--text-3);font-size:0.9rem}",
   ".palette-foot{padding:0.6rem 1rem;border-top:1px solid var(--border);display:flex;gap:1rem;font-size:0.72rem;color:var(--text-3)}",
+  "button.palette-item{font-family:inherit;font-size:0.9rem;width:100%;cursor:pointer}",
+  // Segmented control (dashboard ranges)
+  ".seg{display:inline-flex;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:2px;gap:2px}.seg-btn{border:none;background:none;color:var(--text-2);font-size:0.78rem;font-weight:600;padding:0.25rem 0.7rem;border-radius:5px;cursor:pointer;transition:background var(--dur) var(--ease),color var(--dur) var(--ease)}.seg-btn:hover{color:var(--text)}.seg-btn.active{background:var(--surface-3);color:var(--text)}",
+  // Skeleton shimmer
+  ".skel{background:linear-gradient(90deg,var(--surface) 25%,var(--surface-3) 37%,var(--surface) 63%);background-size:400% 100%;border-radius:var(--radius-sm);animation:skel 1.4s ease infinite}",
+  "@keyframes skel{0%{background-position:100% 0}100%{background-position:0 0}}",
+  // Quick-action cards (dashboard)
+  ".quick{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}.qa{display:flex;align-items:center;gap:0.75rem;padding:0.9rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}.qa:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow);color:var(--text)}.qa .q-ic{width:34px;height:34px;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0}.qa .q-ic .ic{width:17px;height:17px}.qa strong{display:block;font-size:0.88rem;font-weight:600;letter-spacing:-0.01em}.qa small{color:var(--text-3);font-size:0.75rem}",
+  // Cross-document View Transitions (Chrome 126+, Safari 18.2+; self-gates elsewhere)
+  "@view-transition{navigation:auto}",
+  "::view-transition-old(root){animation:vt-old .18s var(--ease) both}::view-transition-new(root){animation:vt-new .24s var(--ease) both}",
+  "@keyframes vt-old{to{opacity:0}}@keyframes vt-new{from{opacity:0;transform:translateY(3px)}}",
+  // Gentle theme-switch cross-fade on chrome surfaces
+  ".topbar,.sidebar{transition:background-color var(--dur) var(--ease),border-color var(--dur) var(--ease)}",
   // Animations
-  "@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}",
+  "@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}::view-transition-old(root),::view-transition-new(root){animation:none!important}}",
   // Mobile
   "@media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{display:none}.topbar{flex-wrap:wrap;height:auto;padding:0.5rem 0.75rem}.toplinks{display:flex!important;flex-wrap:nowrap;gap:0.25rem;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;font-size:0.75rem;white-space:nowrap;padding:0.25rem 0}.toplinks a{display:inline-flex;align-items:center;gap:0.3rem;padding:0.3rem 0.55rem;border-radius:var(--radius-sm);color:var(--text-2);font-size:0.78rem}.toplinks a.active{background:var(--accent-soft);color:var(--accent)}.content{padding:1.25rem 1rem}.page-head{flex-direction:column;align-items:flex-start}.page-title{display:none}th:nth-child(2),td:nth-child(2),th:nth-child(4),td:nth-child(4){display:none}}",
   ".toplinks{display:none}",
@@ -220,7 +263,7 @@ ${sideLinks}
 <span class="page-title">${esc(title)}</span>
 <div class="spacer"></div>
 <div class="actions">
-<button type="button" class="icon-btn" onclick="paletteOpen()" aria-label="Command palette (Ctrl+K)" title="Command palette"><span style="display:inline-flex">${icon("search")}</span></button>
+<button type="button" class="icon-btn" id="palette-btn" onclick="paletteOpen()" aria-label="Command palette (Ctrl+K)" aria-haspopup="dialog" aria-expanded="false" title="Command palette"><span style="display:inline-flex">${icon("search")}</span></button>
 <button type="button" class="icon-btn theme-toggle" id="theme-toggle" onclick="toggleAdminTheme()" aria-label="Toggle color theme">${icon("sun")}${icon("moon")}</button>
 <a href="/" target="_blank" rel="noopener" class="icon-btn" aria-label="View site" title="View site">${icon("ext")}</a>
 <button type="button" class="icon-btn" onclick="logout()" aria-label="Logout" title="Logout" style="color:var(--danger)">${icon("out")}</button>
@@ -232,7 +275,7 @@ ${sideLinks}
 </div>
 <div class="overlay" id="palette" role="dialog" aria-modal="true" aria-label="Command palette">
 <div class="palette">
-<div class="palette-search">${icon("search")}<input id="palette-input" type="text" placeholder="Jump to a page or action…" onkeydown="paletteKey(event)" aria-label="Search" /></div>
+<div class="palette-search">${icon("search")}<input id="palette-input" type="text" placeholder="Jump to a page or action…" oninput="renderPalette(this.value)" aria-label="Search" /></div>
 <div class="palette-list" id="palette-list"></div>
 <div class="palette-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></div>
 </div>

@@ -34,7 +34,9 @@ const EDITOR_CSS = `
 .preview-overlay{position:fixed;inset:0;z-index:80;background:rgba(5,6,10,.7);backdrop-filter:blur(6px);display:flex;flex-direction:column;padding:1.5rem;gap:0.75rem}
 .preview-overlay[hidden]{display:none}
 .preview-bar{display:flex;align-items:center;gap:0.75rem;justify-content:space-between;color:var(--text-2);font-size:0.85rem}
-.preview-frame{flex:1;background:#fff;border:none;border-radius:var(--radius);box-shadow:var(--shadow)}
+.preview-frame{flex:1;background:#fff;border:none;border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:100%;margin:0 auto;display:block;transition:max-width .25s cubic-bezier(.4,0,.2,1)}
+.preview-frame.tablet{max-width:768px}.preview-frame.mobile{max-width:390px}
+.pv-btn.active{background:var(--accent);color:var(--accent-ink)}
 .ai-wrap{position:relative}
 .ai-btn{color:var(--accent)}
 .ai-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:230px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:0.35rem;display:flex;flex-direction:column;gap:2px}
@@ -83,6 +85,9 @@ if(force){go()}else{editorState.previewTimer=setTimeout(go,300)}}
 $('previewBtn').addEventListener('click',function(){var p=$('previewPane');if(p.hidden){p.hidden=false;document.body.style.overflow='hidden';buildPreview(true)}else{closePreview()}});
 $('previewClose').addEventListener('click',closePreview);
 function closePreview(){$('previewPane').hidden=true;document.body.style.overflow=''}
+// ── preview viewport switcher (desktop / tablet / mobile) + refresh ──
+var pvBtns=document.querySelectorAll('.pv-btn');for(var i=0;i<pvBtns.length;i++){(function(b){b.addEventListener('click',function(){for(var j=0;j<pvBtns.length;j++)pvBtns[j].classList.remove('active');b.classList.add('active');var m=b.getAttribute('data-mode');var f=$('previewFrame');f.classList.toggle('tablet',m==='tablet');f.classList.toggle('mobile',m==='mobile')})})(pvBtns[i])}
+$('pvRefresh').addEventListener('click',function(){buildPreview(true);setStatus('Refreshing preview…','var(--accent)')});
 contentEl.addEventListener('input',function(){buildPreview();scheduleSave()});
 titleEl.addEventListener('input',scheduleSave);slugEl.addEventListener('input',scheduleSave);$('excerpt').addEventListener('input',scheduleSave);$('metaTitle').addEventListener('input',scheduleSave);$('metaDesc').addEventListener('input',scheduleSave);
 // ── autosave draft (localStorage) ──
@@ -264,7 +269,7 @@ ${mode === "edit" ? '<div class="aside-card"><h3>Version history</h3><div id="ve
 </div>
 </form>
 <div class="preview-overlay" id="previewPane" hidden role="dialog" aria-modal="true" aria-label="Live preview">
-<div class="preview-bar"><span>Live preview — renders through your theme</span><button type="button" class="btn btn-sm" id="previewClose">Close</button></div>
+<div class="preview-bar"><span>Live preview — renders through your theme</span><div class="flex"><button type="button" class="btn btn-sm pv-btn active" data-mode="full">Desktop</button><button type="button" class="btn btn-sm pv-btn" data-mode="tablet">Tablet</button><button type="button" class="btn btn-sm pv-btn" data-mode="mobile">Mobile</button></div><div class="flex"><button type="button" class="btn btn-sm" id="pvRefresh" title="Refresh preview">↻</button><button type="button" class="btn btn-sm" id="previewClose">Close</button></div></div>
 <iframe class="preview-frame" id="previewFrame" title="Live preview" sandbox="allow-same-origin"></iframe>
 </div>
 <style>${EDITOR_CSS}</style>

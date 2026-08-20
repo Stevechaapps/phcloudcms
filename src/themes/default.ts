@@ -76,5 +76,11 @@ p{margin-bottom:1.25rem;color:var(--text-light)}
 :root[data-theme="dark"] .post-content tr:nth-child(even) td{background:color-mix(in srgb,var(--border) 30%,transparent)}
 .theme-toggle{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-light);font-size:0.85rem;padding:0.25rem 0.6rem;cursor:pointer;line-height:1;transition:all 0.2s}
 .theme-toggle:hover{color:var(--text);border-color:var(--text-light)}
-@media print{header,footer,nav,.sidebar,.topbar{display:none!important}main{max-width:100%;margin:0;padding:0}.post-content pre{background:#f1f5f9;color:#1e293b}a{color:#1e293b;text-decoration:underline}a[href]::after{content:" (" attr(href) ")";font-size:0.8em}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}html{scroll-behavior:auto}}`;
+#read-progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-hover));z-index:200;pointer-events:none;border-radius:0 2px 2px 0}
+@view-transition{navigation:auto}
+::view-transition-old(root){animation:vt-out .18s ease both}
+::view-transition-new(root){animation:vt-in .24s ease both}
+@keyframes vt-out{to{opacity:0}}
+@keyframes vt-in{from{opacity:0}}
+@media print{header,footer,nav,.sidebar,.topbar,.read-progress,#read-progress{display:none!important}main{max-width:100%;margin:0;padding:0}.post-content pre{background:#f1f5f9;color:#1e293b}a{color:#1e293b;text-decoration:underline}a[href]::after{content:" (" attr(href) ")";font-size:0.8em}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}html{scroll-behavior:auto}::view-transition-old(root),::view-transition-new(root){animation:none!important}}`;

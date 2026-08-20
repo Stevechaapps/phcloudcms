@@ -51,6 +51,10 @@ export const THEME_TOGGLE_BTN =
 
 export const THEME_TOGGLE_SCRIPT = `<script>(function(){var d=document.documentElement,b=document.getElementById('theme-toggle');if(!b)return;function dark(){var t=d.getAttribute('data-theme');if(t==='dark')return true;if(t==='light')return false;return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)}function render(){var on=dark();b.setAttribute('aria-pressed',on?'true':'false');b.setAttribute('aria-label',on?'Switch to light mode':'Switch to dark mode');b.textContent=on?'☀':'☾'}render();if(window.matchMedia){try{window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',render)}catch(e){}}b.addEventListener('click',function(){var next=dark()?'light':'dark';d.setAttribute('data-theme',next);try{localStorage.setItem('phcloud-theme',next)}catch(e){}render()})})();</script>`;
 
+// Reading progress bar: a 3px accent bar that fills with scroll position.
+// rAF-throttled; a no-op on pages too short to scroll.
+export const PROGRESS_SCRIPT = `<script>(function(){var b=document.createElement('div');b.id='read-progress';document.body.appendChild(b);var h=document.documentElement;function up(){var max=h.scrollHeight-h.clientHeight;if(max<=0){b.style.width='0';return}b.style.width=((h.scrollTop||document.body.scrollTop)/max*100).toFixed(2)+'%'}var t=null;addEventListener('scroll',function(){if(t)return;t=requestAnimationFrame(function(){t=null;up()})},{passive:true});addEventListener('resize',up,{passive:true});up()})();</script>`;
+
 export function shellFull(
   siteName: string,
   headMarkup: string,
@@ -88,6 +92,7 @@ export function shellFull(
     '</div></header><main id="main">' +
     bodyHtml +
     '</main><footer><div class="inner"><p class="colophon">Powered by <a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">PHCloud CMS</a> on <a href="https://cloudflare.com" target="_blank" rel="noopener">Cloudflare</a> · <a href="/admin" rel="nofollow">Manage</a></p></div></footer>' +
+    PROGRESS_SCRIPT +
     THEME_TOGGLE_SCRIPT +
     '</body></html>'
   );
