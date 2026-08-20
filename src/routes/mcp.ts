@@ -141,7 +141,8 @@ const TOOLS = [
 ];
 
 export function registerMcpRoute(app: App): void {
-  app.post("/api/mcp", async (c: MCPCtx) => {
+  app.all("/api/mcp", async (c: MCPCtx) => {
+    if (c.req.method !== "POST") return c.json(rpcError(null, -32601, "Method not found"), 405);
 
     // DNS-rebinding protection: if Origin is present it must be same-origin.
     const origin = c.req.header("origin");
