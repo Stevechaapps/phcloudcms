@@ -141,7 +141,7 @@ const TOOLS = [
 ];
 
 export function registerMcpRoute(app: App): void {
-  app.all("/api/mcp{/?}", async (c: MCPCtx) => {
+  const mcpHandler = async (c: MCPCtx) => {
     // ── GET → legacy SSE endpoint discovery (opencode compat) ──────
     if (c.req.method === "GET") {
       const token = await getSetting(c.env.DB, "mcp_token");
@@ -153,9 +153,7 @@ export function registerMcpRoute(app: App): void {
       const endpoint = new URL(c.req.url);
       endpoint.searchParams.set("session_id", sessionId);
       
-      // We emit both a sessioned URL for legacy discovery and a bare URL
-      // because some opencode versions strip query params before POSTing.
-      await c.env.CACHE.put("mcp:session:" + sessionId, "active", { expirationTtl: 3600 });
+      await c.env.CACHE.put("mcpsession:" + sessionId, "active", { expirationTtl: 3600 });
 
       const body = new ReadableStream({
         start(controller) {
@@ -169,7 +167,7 @@ export function registerMcpRoute(app: App): void {
           interval = setInterval(() => { try { controller.enqueue(enc.encode(": keep-alive\n\n")); } catch { cleanup(); } }, 15000);
         },
         pull() { },
-        cancel() { c.env.CACHE.delete("mcp:session:" + sessionId); },
+        cancel() { c.env.CACHE.delete("mcpsession:" + sessionId); },
       });
 
       return new Response(body, {
@@ -205,13 +203,8 @@ export function registerMcpRoute(app: App): void {
     const method = String(body.method ?? "");
     const id = body.id ?? null;
 
-    // Notifications (no id) → 202 with no body.
     if (id === null || id === undefined) return c.body(null, 202);
 
-    // ── Header validation (2026-07-28 transport, lenient for older clients) ──
-    // Required per spec, but missing headers are treated as warnings rather than
-    // hard rejections so older clients can still get a real JSON-RPC error back
-    // (which is the backward-compat signal they look for).
     const protoHeader = c.req.header("mcp-protocol-version");
     const meta = (body._meta as Record<string, unknown>) ?? {};
     const bodyVersion = String(meta["io.modelcontextprotocol/protocolVersion"] ?? "");
@@ -233,7 +226,6 @@ export function registerMcpRoute(app: App): void {
       }
     }
 
-    // ── Method dispatch ──
     if (method === "initialize") {
       const sessionId = crypto.randomUUID();
       await c.env.CACHE.put("mcpsession:" + sessionId, "active", { expirationTtl: 3600 });
@@ -288,7 +280,12 @@ export function registerMcpRoute(app: App): void {
     }
 
     return c.json(rpcError(id, -32601, "Method not found"), 404);
-  });
+  };
+
+  app.get("/api/mcp", mcpHandler);
+  app.get("/api/mcp/", mcpHandler);
+  app.post("/api/mcp", mcpHandler);
+  app.post("/api/mcp/", mcpHandler);
 }
 
 // ── Tool implementations ───────────────────────────────────────────
