@@ -141,7 +141,7 @@ const TOOLS = [
 ];
 
 export function registerMcpRoute(app: App): void {
-  app.all("/api/mcp", async (c: MCPCtx) => {
+  app.all("/api/mcp{/?}", async (c: MCPCtx) => {
     // ── GET → legacy SSE endpoint discovery (opencode compat) ──────
     if (c.req.method === "GET") {
       const token = await getSetting(c.env.DB, "mcp_token");
