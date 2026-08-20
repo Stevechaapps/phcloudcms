@@ -141,51 +141,7 @@ const TOOLS = [
 ];
 
 export function registerMcpRoute(app: App): void {
-  app.all("/api/mcp", async (c: MCPCtx) => {
-    // ── GET → SSE stream (opencode-compatible transport) ──────────
-    if (c.req.method === "GET") {
-      const token = await getSetting(c.env.DB, "mcp_token");
-      if (!token) return c.json(rpcError(null, -32001, "MCP access token is not configured on this site"), 401);
-      const auth = c.req.header("authorization") ?? "";
-      if (auth !== "Bearer " + token) return c.json(rpcError(null, -32001, "Unauthorized"), 401);
-
-      const sessionId = crypto.randomUUID();
-      const url = new URL(c.req.url);
-      url.searchParams.set("session_id", sessionId);
-
-      await c.env.CACHE.put("mcp:session:" + sessionId, "active", { expirationTtl: 3600 });
-
-      const encoder = new TextEncoder();
-      let interval: ReturnType<typeof setInterval> | null = null;
-      const cleanup = () => { if (interval) clearInterval(interval); c.env.CACHE.delete("mcp:session:" + sessionId); };
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode("event: endpoint\ndata: " + JSON.stringify({ url: url.toString() }) + "\n\n"));
-          interval = setInterval(() => {
-            try { controller.enqueue(encoder.encode(": keep-alive\n\n")); } catch { cleanup(); }
-          }, 15000);
-        },
-        async cancel() { cleanup(); },
-      });
-
-      return new Response(stream, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache, no-transform",
-          "Connection": "keep-alive",
-          "X-Accel-Buffering": "no",
-        },
-      });
-    }
-
-    if (c.req.method !== "POST") return c.json(rpcError(null, -32601, "Method not found"), 405);
-
-    // Optional session validation for stream-bound POSTs
-    const sessionId = c.req.query("session_id");
-    if (sessionId) {
-      const session = await c.env.CACHE.get("mcp:session:" + sessionId);
-      if (!session) return c.json(rpcError(null, -32001, "Invalid or expired session"), 401);
-    }
+  app.post("/api/mcp", async (c: MCPCtx) => {
 
     // DNS-rebinding protection: if Origin is present it must be same-origin.
     const origin = c.req.header("origin");
@@ -195,7 +151,7 @@ export function registerMcpRoute(app: App): void {
       if (origin !== allowed && origin !== "http://" + host) return c.json(rpcError(null, -32600, "Invalid Origin"), 403);
     }
 
-    // Bearer auth against the configured MCP token. No token configured = endpoint off.
+    // Gate: Bearer auth against the configured MCP token. No token = endpoint off.
     const token = await getSetting(c.env.DB, "mcp_token");
     if (!token) return c.json(rpcError(null, -32001, "MCP access token is not configured on this site"), 401);
     const auth = c.req.header("authorization") ?? "";
@@ -209,22 +165,27 @@ export function registerMcpRoute(app: App): void {
     // Notifications (no id) → 202 with no body.
     if (id === null || id === undefined) return c.body(null, 202);
 
-    // ── Required-header validation (2026-07-28 transport) ──
+    // ── Header validation (2026-07-28 transport, lenient for older clients) ──
+    // Required per spec, but missing headers are treated as warnings rather than
+    // hard rejections so older clients can still get a real JSON-RPC error back
+    // (which is the backward-compat signal they look for).
     const protoHeader = c.req.header("mcp-protocol-version");
     const meta = (body._meta as Record<string, unknown>) ?? {};
     const bodyVersion = String(meta["io.modelcontextprotocol/protocolVersion"] ?? "");
-    if (protoHeader !== bodyVersion) {
-      return c.json(headerMismatch(id, "MCP-Protocol-Version header '" + (protoHeader ?? "") + "' does not match body _meta '" + bodyVersion + "'"), 400);
+    if (protoHeader && bodyVersion && protoHeader !== bodyVersion) {
+      return c.json(headerMismatch(id, "MCP-Protocol-Version header does not match body _meta"), 400);
     }
-    if (protoHeader !== PROTOCOL_VERSION) {
-      return c.json(unsupportedVersion(id, protoHeader ?? ""), 400);
+    if (protoHeader && protoHeader !== PROTOCOL_VERSION) {
+      return c.json(unsupportedVersion(id, protoHeader), 400);
     }
-    if ((c.req.header("mcp-method") ?? "") !== method) {
-      return c.json(headerMismatch(id, "Mcp-Method header does not match body method '" + method + "'"), 400);
+    const mcpMethodHeader = c.req.header("mcp-method");
+    if (mcpMethodHeader && mcpMethodHeader !== method) {
+      return c.json(headerMismatch(id, "Mcp-Method header does not match body method"), 400);
     }
     if (method === "tools/call") {
       const name = String((body.params as Record<string, unknown>)?.name ?? "");
-      if ((c.req.header("mcp-name") ?? "") !== name) {
+      const mcpNameHeader = c.req.header("mcp-name");
+      if (mcpNameHeader && mcpNameHeader !== name) {
         return c.json(headerMismatch(id, "Mcp-Name header does not match body tool name"), 400);
       }
     }
