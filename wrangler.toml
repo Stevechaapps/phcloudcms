@@ -24,7 +24,10 @@ id = "2d0d517b10eb4e66bdacfebd108e3898"
 binding = "AI"
 
 # ── Analytics Engine ───────────────────────────────────────────────
-# Free tier: 100k data points/day. Dataset auto-created on first write.
-[[analytics_engine_datasets]]
-binding = "ANALYTICS"
-dataset = "phcloud_views"
+# Free tier: 100k data points/day. Disabled until you enable Analytics
+# Engine for this account (dash.cloudflare.com → Workers → Analytics
+# Engine → Enable). Stats work without it — D1 is the primary store;
+# this is a best-effort mirror. Uncomment once enabled.
+# [[analytics_engine_datasets]]
+# binding = "ANALYTICS"
+# dataset = "phcloud_views"
