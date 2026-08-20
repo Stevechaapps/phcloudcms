@@ -142,7 +142,43 @@ const TOOLS = [
 
 export function registerMcpRoute(app: App): void {
   app.all("/api/mcp", async (c: MCPCtx) => {
+    // ── GET → legacy SSE endpoint discovery (opencode compat) ──────
+    if (c.req.method === "GET") {
+      const token = await getSetting(c.env.DB, "mcp_token");
+      if (!token) return c.json(rpcError(null, -32001, "MCP access token is not configured on this site"), 401);
+      const auth = c.req.header("authorization") ?? "";
+      if (auth !== "Bearer " + token) return c.json(rpcError(null, -32001, "Unauthorized"), 401);
+
+      const sessionId = crypto.randomUUID();
+      const endpoint = new URL(c.req.url);
+      endpoint.searchParams.set("session_id", sessionId);
+
+      await c.env.CACHE.put("mcp:session:" + sessionId, "active", { expirationTtl: 3600 });
+
+      const body = new ReadableStream({
+        start(controller) {
+          const enc = new TextEncoder();
+          controller.enqueue(enc.encode("event: endpoint\ndata: " + JSON.stringify({ url: endpoint.toString() }) + "\n\n"));
+          let interval: ReturnType<typeof setInterval> | null = null;
+          const cleanup = () => { if (interval) clearInterval(interval); c.env.CACHE.delete("mcp:session:" + sessionId); };
+          interval = setInterval(() => { try { controller.enqueue(enc.encode(": keep-alive\n\n")); } catch { cleanup(); } }, 15000);
+        },
+        cancel() { c.env.CACHE.delete("mcp:session:" + sessionId); },
+      });
+
+      return new Response(body, {
+        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+      });
+    }
+
     if (c.req.method !== "POST") return c.json(rpcError(null, -32601, "Method not found"), 405);
+
+    // Optional session validation: opencode sends session_id back in the URL.
+    const sessionId = c.req.query("session_id") ?? "";
+    if (sessionId) {
+      const session = await c.env.CACHE.get("mcp:session:" + sessionId);
+      if (!session) return c.json(rpcError(null, -32001, "Invalid or expired session"), 401);
+    }
 
     // DNS-rebinding protection: if Origin is present it must be same-origin.
     const origin = c.req.header("origin");
