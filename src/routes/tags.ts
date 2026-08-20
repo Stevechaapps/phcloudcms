@@ -10,8 +10,8 @@ export function registerTagRoutes(app: App): void {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return auth;
     const rows = await c.env.DB.prepare(
-      "SELECT id, name, slug FROM tags ORDER BY name",
-    ).all<{ id: number; name: string; slug: string }>();
+      "SELECT t.id, t.name, t.slug, (SELECT COUNT(*) FROM post_tags pt WHERE pt.tag_id = t.id) AS post_count FROM tags t ORDER BY t.name",
+    ).all<{ id: number; name: string; slug: string; post_count: number }>();
     return c.json(rows.results);
   });
 
@@ -43,6 +43,6 @@ export function registerTagRoutes(app: App): void {
   app.get("/admin/tags", async (c) => {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return c.redirect("/admin/login");
-    return c.html(adminShell("Tags", tagsBody()));
+    return c.html(adminShell("Tags", tagsBody(), "/admin/tags"));
   });
 }

@@ -48,6 +48,21 @@ export const SCHEMA_STATEMENTS: string[] = [
     tag_id INTEGER NOT NULL,
     PRIMARY KEY (post_id, tag_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS post_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    saved_at TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    excerpt TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS stats_views (
+    date TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'post',
+    views INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (date, slug)
+  )`,
 ];
 
 // Schema — runs after tables, inside try/catch so partial installs are fine.
@@ -55,6 +70,8 @@ export const INDEX_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug)`,
   `CREATE INDEX IF NOT EXISTS idx_posts_published ON posts(published)`,
   `CREATE INDEX IF NOT EXISTS idx_posts_type ON posts(type)`,
+  `CREATE INDEX IF NOT EXISTS idx_post_versions_post ON post_versions(post_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_stats_views_date ON stats_views(date)`,
 ];
 
 // Columns added to older databases.
@@ -64,6 +81,8 @@ export const ALTER_POSTS_COLUMNS: { sql: string }[] = [
   { sql: "ALTER TABLE posts ADD COLUMN publish_at TEXT" },
   { sql: "ALTER TABLE posts ADD COLUMN preview_token TEXT" },
   { sql: "ALTER TABLE posts ADD COLUMN excerpt TEXT" },
+  { sql: "ALTER TABLE posts ADD COLUMN meta_title TEXT" },
+  { sql: "ALTER TABLE posts ADD COLUMN meta_description TEXT" },
 ];
 
 const _MIGRATIONS_TABLE = `CREATE TABLE IF NOT EXISTS _migrations (
@@ -118,6 +137,8 @@ export async function migrate(db: D1Database): Promise<void> {
       // index already exists
     }
   }
+  await applyIfNeeded(db, "migrate-meta-title-col", ALTER_POSTS_COLUMNS[4].sql);
+  await applyIfNeeded(db, "migrate-meta-desc-col", ALTER_POSTS_COLUMNS[5].sql);
 
   // 5 — defensive data cleanup for databases upgraded mid-life
   await backfillMissingDefaults(db);
@@ -161,6 +182,13 @@ export async function getSetting(db: D1Database, key: string): Promise<string | 
   return row?.value ?? null;
 }
 
+export async function setSetting(db: D1Database, key: string, value: string): Promise<void> {
+  await db
+    .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)")
+    .bind(key, value)
+    .run();
+}
+
 export async function getAllSettings(db: D1Database): Promise<Record<string, string>> {
   const rows = await db
     .prepare("SELECT key, value FROM settings")
@@ -180,7 +208,7 @@ export async function isConfigured(db: D1Database): Promise<boolean> {
 // `posts` table predates columns like publish_at/type/preview_token added by
 // ALTER — gets them added the first time the new code serves a request,
 // without a re-install or wrangler. migrate() is idempotent so this is safe.
-export const SCHEMA_VERSION = "v2";
+export const SCHEMA_VERSION = "v3";
 
 export async function ensureSchema(db: D1Database, cache: KVNamespace): Promise<void> {
   const flag = `schema:${SCHEMA_VERSION}`;

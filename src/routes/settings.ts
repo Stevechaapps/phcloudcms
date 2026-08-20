@@ -16,6 +16,8 @@ export function registerSettingsRoutes(app: App): void {
       site_name: settings.site_name ?? "",
       seo_description: settings.seo_description ?? "",
       site_logo: settings.site_logo ?? null,
+      ai_guidelines: settings.ai_guidelines ?? "",
+      mcp_token: settings.mcp_token ?? "",
     });
   });
 
@@ -53,6 +55,16 @@ export function registerSettingsRoutes(app: App): void {
         .bind(newVal)
         .run();
     }
+    if (body.ai_guidelines !== undefined)
+      await db
+        .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('ai_guidelines', ?)")
+        .bind(String(body.ai_guidelines ?? ""))
+        .run();
+    if (body.mcp_token !== undefined)
+      await db
+        .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('mcp_token', ?)")
+        .bind(String(body.mcp_token ?? ""))
+        .run();
     await c.env.CACHE.delete("cms:settings");
     return c.json({ ok: true });
   });
@@ -60,6 +72,6 @@ export function registerSettingsRoutes(app: App): void {
   app.get("/admin/settings", async (c) => {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return c.redirect("/admin/login");
-    return c.html(adminShell("Settings", settingsBody()));
+    return c.html(adminShell("Settings", settingsBody(), "/admin/settings"));
   });
 }

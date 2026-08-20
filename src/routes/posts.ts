@@ -4,8 +4,11 @@
 
 import { requireAuth } from "../cms/auth.js";
 import { App, SLUG_RE, parseJsonBody } from "../cms/env.js";
-import { DbPost, autoExcerpt } from "../cms/render.js";
+import { DbPost, autoExcerpt, renderPost, shellFull } from "../cms/render.js";
+import { getSetting, getAllSettings } from "../cms/d1.js";
 import { sanitizePostHtml } from "../cms/sanitize.js";
+import { getStats } from "../cms/stats.js";
+import { snapshotVersion, listVersions, getVersion } from "../cms/versions.js";
 import { adminShell, dashboardBody, postsBody, newPostBody, editBody } from "../admin.js";
 
 export function registerPostRoutes(app: App): void {
@@ -18,6 +21,8 @@ export function registerPostRoutes(app: App): void {
     const title = String(body.title ?? "");
     const slug = String(body.slug ?? "");
     const content = sanitizePostHtml(String(body.content ?? ""));
+    const metaTitle = String(body.meta_title ?? "").trim().slice(0, 60);
+    const metaDescription = String(body.meta_description ?? "").trim().slice(0, 160);
     if (!title.trim()) return c.json({ error: "Title is required" }, 400);
     if (!slug || !SLUG_RE.test(slug)) return c.json({ error: "Invalid slug — use lowercase letters, numbers, and hyphens" }, 400);
 
@@ -33,9 +38,9 @@ export function registerPostRoutes(app: App): void {
     try {
       result = await db
         .prepare(
-          "INSERT INTO posts (title, slug, content, excerpt, published, publish_at, preview_token, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO posts (title, slug, content, excerpt, published, publish_at, preview_token, meta_title, meta_description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .bind(title, slug, content, excerpt, published, publishAt, previewToken, now, now)
+        .bind(title, slug, content, excerpt, published, publishAt, previewToken, metaTitle, metaDescription, now, now)
         .run();
     } catch (e: any) {
       if (String(e?.message ?? "").includes("UNIQUE")) return c.json({ error: "A post with this slug already exists" }, 409);
@@ -52,6 +57,7 @@ export function registerPostRoutes(app: App): void {
           .run();
       }
     }
+    await snapshotVersion(db, postId, title, content, excerpt);
 
     await c.env.CACHE.delete("cms:posts:pub");
     await c.env.CACHE.delete("cms:homepage");
@@ -114,6 +120,8 @@ export function registerPostRoutes(app: App): void {
     const title = String(body.title ?? "");
     const slug = String(body.slug ?? "");
     const content = sanitizePostHtml(String(body.content ?? ""));
+    const metaTitle = String(body.meta_title ?? "").trim().slice(0, 60);
+    const metaDescription = String(body.meta_description ?? "").trim().slice(0, 160);
     if (!title.trim()) return c.json({ error: "Title is required" }, 400);
     if (!slug || !SLUG_RE.test(slug)) return c.json({ error: "Invalid slug — use lowercase letters, numbers, and hyphens" }, 400);
 
@@ -129,15 +137,16 @@ export function registerPostRoutes(app: App): void {
     let result;
     try {
       result = await c.env.DB.prepare(
-        "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, publish_at=?, preview_token=?, updated_at=? WHERE id=?",
+        "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, publish_at=?, preview_token=?, meta_title=?, meta_description=?, updated_at=? WHERE id=?",
       )
-        .bind(title, slug, content, excerpt, published, publishAt, previewToken, now, id)
+        .bind(title, slug, content, excerpt, published, publishAt, previewToken, metaTitle, metaDescription, now, id)
         .run();
     } catch (e: any) {
       if (String(e?.message ?? "").includes("UNIQUE")) return c.json({ error: "A post with this slug already exists" }, 409);
       throw e;
     }
     if (result.meta.changes === 0) return c.json({ error: "Post not found" }, 404);
+    await snapshotVersion(c.env.DB, Number(id), title, content, excerpt);
 
     if (Array.isArray(body.tag_ids)) {
       await c.env.DB.prepare("DELETE FROM post_tags WHERE post_id = ?")
@@ -200,23 +209,96 @@ export function registerPostRoutes(app: App): void {
     return c.json({ ok: true });
   });
 
+  // ── Dashboard stats ─────────────────────────────────────────────
+  app.get("/api/admin/stats", async (c) => {
+    const auth = await requireAuth(c);
+    if (auth instanceof Response) return auth;
+    const days = Math.min(90, Math.max(1, parseInt(c.req.query("days") ?? "30", 10) || 30));
+    return c.json(await getStats(c.env.DB, days));
+  });
+
+  // ── Live preview (renders unsaved content through the real theme) ─
+  app.post("/api/admin/preview", async (c) => {
+    const auth = await requireAuth(c);
+    if (auth instanceof Response) return auth;
+    const body = await parseJsonBody(c);
+    if (!body) return c.json({ error: "Invalid JSON" }, 400);
+    const db = c.env.DB;
+    const [settings, navVal] = await Promise.all([
+      getAllSettings(db),
+      getSetting(db, "nav").then((v) => v ?? "[]"),
+    ]);
+    let nav: { label: string; url: string }[] = [];
+    try {
+      const p = JSON.parse(navVal);
+      if (Array.isArray(p)) nav = p;
+    } catch { /* ignore malformed nav */ }
+    const siteName = settings.site_name ?? "My Site";
+    const siteLogo = settings.site_logo ?? null;
+    const title = String(body.title ?? "Untitled");
+    const content = sanitizePostHtml(String(body.content ?? ""));
+    const html = shellFull(siteName, "", renderPost({ title, content, updated_at: new Date().toISOString() }), nav, siteLogo);
+    return c.html(html);
+  });
+
+  // ── Version history ─────────────────────────────────────────────
+  app.post("/api/admin/posts/:id/versions", async (c) => {
+    const auth = await requireAuth(c);
+    if (auth instanceof Response) return auth;
+    const body = await parseJsonBody(c);
+    if (!body) return c.json({ error: "Invalid JSON" }, 400);
+    const title = String(body.title ?? "");
+    const content = sanitizePostHtml(String(body.content ?? ""));
+    const excerpt = String(body.excerpt ?? autoExcerpt(content)).slice(0, 255);
+    await snapshotVersion(c.env.DB, Number(c.req.param("id")), title, content, excerpt);
+    return c.json({ ok: true });
+  });
+
+  app.get("/api/admin/posts/:id/versions", async (c) => {
+    const auth = await requireAuth(c);
+    if (auth instanceof Response) return auth;
+    const rows = await listVersions(c.env.DB, Number(c.req.param("id")));
+    return c.json(
+      rows.map((v) => ({ id: v.id, saved_at: v.saved_at, title: v.title, excerpt: v.excerpt, content: v.content })),
+    );
+  });
+
+  app.post("/api/admin/posts/:id/versions/:vid/restore", async (c) => {
+    const auth = await requireAuth(c);
+    if (auth instanceof Response) return auth;
+    const db = c.env.DB;
+    const version = await getVersion(db, Number(c.req.param("id")), Number(c.req.param("vid")));
+    if (!version) return c.json({ error: "Version not found" }, 404);
+    await db
+      .prepare("UPDATE posts SET title=?, content=?, excerpt=?, updated_at=? WHERE id=?")
+      .bind(version.title, version.content, version.excerpt, new Date().toISOString(), c.req.param("id"))
+      .run();
+    await snapshotVersion(db, Number(c.req.param("id")), version.title, version.content, version.excerpt ?? "");
+    await c.env.CACHE.delete("cms:posts:pub");
+    await c.env.CACHE.delete("cms:homepage");
+    return c.json({
+      ok: true,
+      post: { title: version.title, content: version.content, excerpt: version.excerpt ?? "" },
+    });
+  });
+
   // ── Admin pages (HTML) ───────────────────────────────────────────
   app.get("/admin", async (c) => {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return c.redirect("/admin/login");
-    return c.html(adminShell("Dashboard", dashboardBody()));
+    return c.html(adminShell("Dashboard", dashboardBody(), "/admin"));
   });
 
   app.get("/admin/posts", async (c) => {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return c.redirect("/admin/login");
-    return c.html(adminShell("Posts", postsBody()));
+    return c.html(adminShell("Posts", postsBody(), "/admin/posts"));
   });
 
   app.get("/admin/new", async (c) => {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return c.redirect("/admin/login");
-    return c.html(adminShell("New Post", newPostBody()));
+    return c.html(adminShell("New Post", newPostBody(), "/admin/new"));
   });
 
   app.get("/admin/edit/:id", async (c) => {
@@ -239,8 +321,11 @@ export function registerPostRoutes(app: App): void {
           published: post.published,
           publish_at: post.publish_at,
           preview_token: post.preview_token,
+          meta_title: post.meta_title ?? null,
+          meta_description: post.meta_description ?? null,
           updated_at: post.updated_at,
         }),
+        "/admin/posts",
       ),
     );
   });

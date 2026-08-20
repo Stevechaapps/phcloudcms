@@ -7,6 +7,7 @@
 import { App } from "../cms/env.js";
 import { getCached } from "../cms/middleware.js";
 import { getSetting, getAllSettings } from "../cms/d1.js";
+import { trackView } from "../cms/stats.js";
 import { CMSRegistry } from "../cms/registry.js";
 import { initActivePlugins } from "../plugins/index.js";
 import { esc, escXml } from "../cms/escape.js";
@@ -374,6 +375,12 @@ export function registerPublicRoutes(app: App): void {
           '<h1>404 — Not found</h1><p><a href="/">Go home</a></p>',
           404,
         );
+
+      // Real traffic: count views for published posts/pages only (preview
+      // token views don't count). Fire-and-forget — never block the render.
+      if (!previewToken) {
+        c.executionCtx.waitUntil(trackView(c.env, post.slug, post.type));
+      }
 
       let bodyHtml: string;
       if (post.type === "page") {

@@ -34,7 +34,7 @@ export function registerPluginRoutes(app: App): void {
       rows.results.filter((p) => p.active === 1).map((p) => p.id),
     );
     return c.html(
-      adminShell("Plugins", pluginsBody(AVAILABLE_PLUGINS, activeSet)),
+      adminShell("Plugins", pluginsBody(AVAILABLE_PLUGINS, activeSet), "/admin/plugins"),
     );
   });
 }

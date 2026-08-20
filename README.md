@@ -46,6 +46,12 @@ No build step. No `node_modules` on the edge. No framework runtime. One `hono` d
 |---|---|
 | **Admin panel** | Dashboard + full CRUD for posts, pages, tags, navigation, and settings |
 | **WYSIWYG editor** | `contentEditable` rich-text editor with a formatting toolbar (bold, italic, H2/H3, link, image, blockquote, list). The toolbar buttons reflect the active selection. No markdown parser. |
+| **Live preview** | A real-time preview pane renders unsaved edits through the public theme while you type |
+| **Version history** | Every save snapshots the post; browse and restore any previous version from the editor |
+| **SEO panel** | Per-post meta title/description with live character counters and a Google-style snippet preview |
+| **Autosave** | Drafts are saved to `localStorage` as you type; a banner offers restore after an accidental close |
+| **AI writing assistant** | Free, no API key: continue writing, summarize for excerpt, rewrite with a tone selector, suggest titles, generate SEO meta — powered by Workers AI's 10k free neurons/day |
+| **Stats dashboard** | Daily view counts, top pages, and a 90-day sparkline — tracked in D1, zero setup |
 | **Scheduled posts** | Publish immediately or schedule for a later datetime; unpublished posts have a private preview link |
 | **Image upload** | Paste or drag an image → resized to ≤1200px and compressed to WebP client-side → stored in D1 → served from `/img/:id`, browser-cached as immutable |
 | **Pages** | Static pages (About, Contact, Privacy…) alongside posts |
@@ -54,6 +60,8 @@ No build step. No `node_modules` on the edge. No framework runtime. One `hono` d
 | **Search** | Full-text search at `/search?q=…` |
 | **RSS feed** | Auto-generated at `/feed.xml` |
 | **XML sitemap** | Auto-generated at `/sitemap.xml` |
+| **MCP server** | A Model Context Protocol endpoint (`/api/mcp`, 2026-07-28 spec) lets AI agents read, create, update, and publish content via a bearer token |
+| **Plugin system** | Small hook-based plugins (sitemap, custom head/body injection) activated from the admin |
 | **Themes** | One static theme file (`src/themes/default.ts`) compiled into the Worker; automatic light/dark via `prefers-color-scheme` plus a header toggle that remembers your choice |
 | **Onboarding wizard** | First-run setup in the browser — creates your admin account and seeds defaults |
 | **Auth** | PBKDF2 password hashing (Web Crypto, 100k iterations), HTTP-only cookies, KV-backed sessions |
@@ -159,11 +167,33 @@ This creates the D1 schema (`migrate`), seeds defaults, and logs you in. You lan
 
 ## Writing content
 
-1. **New Post** → enter a title, write in the WYSIWYG editor
+1. **New Post** → enter a title, write in the WYSIWYG editor. The live preview updates as you type.
 2. Toggle **Publish immediately** or **Schedule for later** (pick a datetime)
-3. Click **Save Post**
+3. Set the **SEO meta** (title/description with live Google snippet preview) — or generate it with one click
+4. Click **Save Post** (or press `Ctrl+S`)
+
+The editor autosaves drafts to your browser as you type and keeps the last 50 versions of every post, restorable from the version panel. The ✦ AI menu continues writing, summarizes for the excerpt, rewrites with a chosen tone, suggests titles, and writes SEO meta — all from the free Workers AI budget shown in the publish card.
 
 Published posts appear on the homepage immediately (publishing invalidates the cache). Drafts stay private; an unpublished post gets a shareable **Preview** link in the editor.
+
+## AI writing assistant
+
+No API key, no configuration — the editor's ✦ menu calls the Worker, which runs `@cf/meta/llama-3.1-8b-instruct-fast` through Cloudflare Workers AI. The free plan includes **10,000 neurons/day** (roughly a thousand small generations); usage is metered in D1 and resets daily. The remaining budget shows in the publish card.
+
+Your own writing style guide (in **Settings → AI guidelines**) is injected into every prompt. When the daily budget runs out, the assistant surfaces a clean message instead of failing.
+
+## Connect AI agents (MCP)
+
+PHCloud exposes a [Model Context Protocol](https://modelcontextprotocol.io) server at `/api/mcp` (spec revision **2026-07-28**, Streamable HTTP transport). Any MCP-aware tool — Claude Desktop, coding agents, automation — can read, create, update, and publish your content with your permission.
+
+1. **Settings → MCP Access** → **Generate** a bearer token, save
+2. Point your client at `https://<your-site>/api/mcp` with `Authorization: Bearer <token>`
+
+Available tools: `list_posts`, `get_post`, `create_post`, `update_post`, `publish_post`, `list_tags`, `site_stats`. The endpoint is disabled until a token is configured, and rejects requests with a missing/mismatched token.
+
+## Analytics
+
+Every view of a published post or page increments a per-day counter in D1 (`stats_views`), so the dashboard shows last-30-day traffic out of the box — no analytics provider, no script tag, no cookie banner. Optionally, an Analytics Engine dataset in `wrangler.toml` ingests the same events for long-term retention.
 
 ## Images
 
@@ -201,10 +231,14 @@ npm run lint:fix   # prettier --write src/
 ```
 src/
   index.ts          Worker entrypoint — middleware + route registration (catch-all last)
-  cms/              framework bits: auth, d1 (migrate), sanitize, escape, render, middleware
-  admin/            admin UI: shell, dashboard, posts, pages, tags, nav, images, settings, editor, login
-  routes/           HTTP routes by domain: posts, pages, tags, nav, images, install, wipe, public, settings, auth
+  cms/              framework bits: auth, d1 (migrate), sanitize, escape, render, middleware,
+                    stats (view tracking), versions, ai (Workers AI helpers + neuron budget)
+  admin/            admin UI: shell, dashboard, posts, pages, tags, nav, images, settings,
+                    editor, editor-body (full editor page), login
+  routes/           HTTP routes by domain: posts, pages, tags, nav, images, settings, auth,
+                    ai, mcp, install, wipe, public
   themes/           default.ts (single static theme, compiled into the Worker)
+  plugins/          hook-based plugin system (sitemap, head/body injection)
 ```
 
 Routing lives in `src/routes/*`; the admin HTML bodies live in `src/admin/*`; the framework glue (auth, DB, sanitization) lives in `src/cms/*`. The editor's inline JavaScript is shared in `src/admin/editor.ts`.
@@ -227,7 +261,7 @@ See [`THEMES.md`](THEMES.md).
 
 Set globally on every response in `src/index.ts`:
 
-- `Content-Security-Policy`: `default-src 'self'; script-src 'nonce-<random>' 'strict-dynamic'; style-src 'unsafe-inline'; script-src-attr 'unsafe-inline'` (CSP nonce is injected into `<script>` tags via middleware; `'unsafe-inline'` on styles and inline event handlers since they're first-party admin code, not user content)
+- `Content-Security-Policy`: `default-src 'self'; script-src 'self' 'nonce-<random>'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'` (CSP nonce is injected into every `<script>` tag via middleware; inline styles and event handlers are first-party admin code, not user content)
 - `Strict-Transport-Security`: `max-age=31536000; includeSubDomains`
 - `X-Frame-Options: DENY` · `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
@@ -243,6 +277,8 @@ Post and page content is run through an allowlist HTML sanitizer (a tiny tokeniz
 | Framework | [Hono v4.12](https://hono.dev) |
 | Database | [D1](https://developers.cloudflare.com/d1/) (serverless SQLite) |
 | Cache / sessions / images | [Workers KV](https://developers.cloudflare.com/kv/) |
+| AI | [Workers AI](https://developers.cloudflare.com/workers-ai/) — `@cf/meta/llama-3.1-8b-instruct-fast`, 10k free neurons/day, no API key |
+| Analytics | D1 counters + optional Analytics Engine |
 | Language | TypeScript |
 | Auth | PBKDF2 via Web Crypto |
 | Entry point | `src/index.ts` |

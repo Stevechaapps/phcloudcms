@@ -6,6 +6,8 @@ import type { Context, Hono } from "hono";
 export type Env = {
   DB: D1Database;
   CACHE: KVNamespace;
+  AI?: Ai;
+  ANALYTICS?: AnalyticsEngineDataset;
 };
 
 export type Variables = {

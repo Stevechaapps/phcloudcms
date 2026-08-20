@@ -33,9 +33,7 @@ export function pluginsBody(
     byCategory[p.category].push(p);
   }
 
-  var html = '<h2 style="margin-bottom:0.5rem">Plugins</h2>';
-  html +=
-    '<p style="color:var(--ad-muted);margin-bottom:2rem;font-size:0.9rem">Toggle plugins on or off. Changes take effect immediately.</p>';
+  var html = '<div class="page-head"><div><h1>Plugins</h1><div class="sub">Toggle plugins on or off — changes take effect immediately.</div></div></div>';
 
   for (var c = 0; c < PLUGIN_CATEGORIES.length; c++) {
     var cat = PLUGIN_CATEGORIES[c];
@@ -43,35 +41,33 @@ export function pluginsBody(
     if (!plugins || !plugins.length) continue;
 
     html +=
-      '<h3 style="margin:2rem 0 1rem;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--ad-muted)">';
+      '<h3 class="side-label" style="padding-left:0;padding-top:1rem">';
     html += esc(cat.label) + "</h3>";
-    html +=
-      '<div style="background:var(--ad-card);border:1px solid var(--ad-card-bd);border-radius:6px;overflow:hidden;margin-bottom:1.5rem">';
+    html += '<div class="card mb-2">';
 
     for (var j = 0; j < plugins.length; j++) {
       var pl = plugins[j];
       var isActive = activePluginIds.has(pl.id);
       html +=
         '<div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;';
-      html += 'border-bottom:1px solid var(--ad-row-bd)">';
+      html += 'border-bottom:1px solid var(--border)">';
       html += '<div style="flex:1;min-width:0">';
-      html += '<div style="font-weight:600;font-size:0.95rem">' + esc(pl.name);
+      html += '<div style="font-weight:600;font-size:0.95rem;letter-spacing:-0.01em">' + esc(pl.name);
       html +=
-        ' <span style="font-weight:400;color:var(--ad-muted);font-size:0.8rem">v' +
+        ' <span class="badge badge-info" style="margin-left:0.4rem;vertical-align:2px">v' +
         esc(pl.version) +
         "</span></div>";
       html +=
-        '<div style="color:var(--ad-muted);font-size:0.85rem;margin-top:0.2rem">' +
+        '<div class="muted" style="font-size:0.85rem;margin-top:0.2rem">' +
         esc(pl.description) +
         "</div>";
       html +=
-        '<div style="color:var(--ad-muted);font-size:0.75rem;margin-top:0.3rem">by ' +
+        '<div class="dim" style="font-size:0.75rem;margin-top:0.3rem">by ' +
         esc(pl.author);
       html += " · hooks: " + esc(pl.hooks.join(", ")) + "</div>";
       html += "</div>";
       html += '<div style="margin-left:1.5rem;flex-shrink:0">';
-      html +=
-        '<label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">';
+      html += '<label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">';
       html +=
         '<input type="checkbox" class="plugin-toggle" data-plugin="' +
         esc(pl.id) +
@@ -79,7 +75,9 @@ export function pluginsBody(
       html += isActive ? " checked" : "";
       html += " />";
       html +=
-        '<span style="font-size:0.85rem;color:var(--ad-muted)">' +
+        '<span style="font-size:0.85rem" class="' +
+        (isActive ? "muted" : "dim") +
+        '">' +
         (isActive ? "Active" : "Inactive") +
         "</span>";
       html += "</label></div></div>";
@@ -90,9 +88,7 @@ export function pluginsBody(
 
   if (!availablePlugins.length) {
     html +=
-      '<div style="text-align:center;padding:3rem;color:var(--ad-muted)">No plugins available.';
-    html +=
-      " Add files to <code>src/plugins/</code> and list them in <code>src/plugins/index.ts</code>.</div>";
+      '<div class="empty card"><h3>No plugins available</h3><p>Add files to <code>src/plugins/</code> and list them in <code>src/plugins/index.ts</code>.</p></div>';
   }
 
   html += "<script>";
@@ -103,9 +99,9 @@ export function pluginsBody(
     'fetch("/api/admin/plugins/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},';
   html +=
     "body:JSON.stringify({active:cb.checked})}).then(function(res){cb.disabled=false;";
-  html += 'if(!res.ok){cb.checked=!cb.checked;alert("Failed to save")}';
+  html += 'if(!res.ok){cb.checked=!cb.checked;toast("Failed to save","err")}';
   html += 'var span=cb.closest("label").querySelector("span");';
-  html += 'if(span)span.textContent=cb.checked?"Active":"Inactive"})})});';
+  html += 'if(span){span.className=cb.checked?"muted":"dim";span.textContent=cb.checked?"Active":"Inactive"}})})});';
   html += "</script>";
 
   return html;

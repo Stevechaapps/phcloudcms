@@ -90,7 +90,7 @@ export function registerImageRoutes(app: App): void {
   app.get("/admin/images", async (c) => {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return c.redirect("/admin/login");
-    return c.html(adminShell("Image Library", imagesBody()));
+    return c.html(adminShell("Image Library", imagesBody(), "/admin/images"));
   });
 
   // ── Public image serving ─────────────────────────────────────────

@@ -4,7 +4,8 @@
 
 export { adminShell } from "./admin/shell.js";
 export { dashboardBody } from "./admin/dashboard.js";
-export { postsBody, newPostBody, editBody } from "./admin/posts.js";
+export { postsBody } from "./admin/posts.js";
+export { newPostBody, editBody } from "./admin/editor-body.js";
 export { pagesBody, newPageBody, editPageBody } from "./admin/pages.js";
 export { tagsBody } from "./admin/tags.js";
 export { navBody } from "./admin/nav.js";

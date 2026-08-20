@@ -21,6 +21,8 @@ export type DbPost = Post & {
   type: string;
   publish_at: string | null;
   preview_token: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
 };
 
 // ── Excerpt ────────────────────────────────────────────────────────
@@ -61,7 +63,7 @@ export function shellFull(
     .join("");
 
   return (
-    '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>' +
+    '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="generator" content="PHCloud CMS" /><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc" /><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a" /><title>' +
     esc(siteName) +
     '</title><link rel="sitemap" type="application/xml" href="/sitemap.xml" /><link rel="alternate" type="application/rss+xml" title="' +
     esc(siteName) +
@@ -92,18 +94,31 @@ export function shellFull(
 }
 
 // ── Post + list rendering ──────────────────────────────────────────
-export function renderPost(post: Post): string {
-  const date = new Date(post.updated_at).toLocaleDateString("en-US", {
+// Reading time from stored HTML; ~200 wpm, floored at 1 min. Cheap, useful,
+// and it only has to be approximately right.
+export function readingTime(content: string): number {
+  return Math.max(1, Math.round(htmlToText(content).split(/\s+/).filter(Boolean).length / 200));
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
+}
+
+export function renderPost(post: Post): string {
   return (
     "<h1 style=\"margin-bottom:0.5rem\">" +
     esc(post.title) +
-    '</h1><div style="color:var(--text-muted);font-size:0.9rem;margin-bottom:2.5rem;font-variant-numeric:tabular-nums">' +
-    date +
-    '</div><div class="post-content">' +
+    '</h1><div class="post-meta"><time datetime="' +
+    esc(post.updated_at) +
+    '">' +
+    formatDate(post.updated_at) +
+    "</time><span aria-hidden=\"true\">·</span><span>" +
+    readingTime(post.content) +
+    ' min read</span></div><div class="post-content">' +
     sanitizePostHtml(post.content) +
     "</div>"
   );
@@ -125,15 +140,15 @@ export function renderPostList(
   let html =
     '<div class="post-list">';
   for (const p of posts) {
-    const date = new Date(p.updated_at).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    const date = formatDate(p.updated_at);
     html +=
       '<article class="post-card">';
     html +=
-      '<div class="meta">' + date + '</div>';
+      '<div class="meta"><time datetime="' +
+      esc(p.updated_at) +
+      '">' +
+      date +
+      "</time></div>";
     html +=
       '<h2><a href="/' +
       esc(p.slug) +

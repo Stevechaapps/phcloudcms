@@ -17,3 +17,14 @@ database_id = "a2823457-ab83-40fd-8b29-0e5054caa728"
 [[kv_namespaces]]
 binding = "CACHE"
 id = "2d0d517b10eb4e66bdacfebd108e3898"
+
+# ── Workers AI ─────────────────────────────────────────────────────
+# Free tier: 10,000 neurons/day — no credit card, no API key.
+[ai]
+binding = "AI"
+
+# ── Analytics Engine ───────────────────────────────────────────────
+# Free tier: 100k data points/day. Dataset auto-created on first write.
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "phcloud_views"
