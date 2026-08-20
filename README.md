@@ -48,7 +48,7 @@ No build step. No `node_modules` on the edge. No framework runtime. One `hono` d
 | **WYSIWYG editor** | `contentEditable` rich-text editor with a formatting toolbar (bold, italic, H2/H3, link, image, blockquote, list). The toolbar buttons reflect the active selection. No markdown parser. |
 | **Live preview** | A real-time preview pane renders unsaved edits through the public theme while you type |
 | **Version history** | Every save snapshots the post; browse and restore any previous version from the editor |
-| **SEO panel** | Per-post meta title/description with live character counters and a Google-style snippet preview |
+| **SEO panel** | Per-post and per-page meta title/description with live character counters and a Google-style snippet preview |
 | **Autosave** | Drafts are saved to `localStorage` as you type; a banner offers restore after an accidental close |
 | **AI writing assistant** | Free, no API key: continue writing, summarize for excerpt, rewrite with a tone selector, suggest titles, generate SEO meta — powered by Workers AI's 10k free neurons/day |
 | **Stats dashboard** | Daily view counts, top pages, and a 90-day sparkline — tracked in D1, zero setup |
@@ -254,6 +254,7 @@ export const css = `…`;
 - **Light/dark** is automatic via `@media (prefers-color-scheme: dark)`, plus a header toggle (☾/☀) that overrides the OS preference and is remembered in `localStorage('phcloud-theme')`. A small inline script in `<head>` applies the saved choice before paint so there's no flash of the wrong theme. The admin panel follows the OS scheme too (`prefers-color-scheme: dark`); the login page is dark in both modes.
 - **Reskin** by editing `:root` colors in `src/themes/default.ts`, then commit + push.
 - **Swap** by pointing the import in `src/cms/render.ts` at a different theme file.
+- **Hero kicker** — the small label above the site name (e.g. "Edge-published on Cloudflare") is editable in **Settings → Hero Kicker** (leave empty to hide it entirely).
 
 See [`THEMES.md`](THEMES.md).
 
