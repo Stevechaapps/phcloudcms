@@ -142,9 +142,50 @@ const TOOLS = [
 
 export function registerMcpRoute(app: App): void {
   app.all("/api/mcp", async (c: MCPCtx) => {
-    // Legacy-era transports (GET SSE stream, DELETE session) are not part of
-    // this revision: 405.
+    // ── GET → SSE stream (opencode-compatible transport) ──────────
+    if (c.req.method === "GET") {
+      const token = await getSetting(c.env.DB, "mcp_token");
+      if (!token) return c.json(rpcError(null, -32001, "MCP access token is not configured on this site"), 401);
+      const auth = c.req.header("authorization") ?? "";
+      if (auth !== "Bearer " + token) return c.json(rpcError(null, -32001, "Unauthorized"), 401);
+
+      const sessionId = crypto.randomUUID();
+      const url = new URL(c.req.url);
+      url.searchParams.set("session_id", sessionId);
+
+      await c.env.CACHE.put("mcp:session:" + sessionId, "active", { expirationTtl: 3600 });
+
+      const encoder = new TextEncoder();
+      let interval: ReturnType<typeof setInterval> | null = null;
+      const cleanup = () => { if (interval) clearInterval(interval); c.env.CACHE.delete("mcp:session:" + sessionId); };
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode("event: endpoint\ndata: " + JSON.stringify({ url: url.toString() }) + "\n\n"));
+          interval = setInterval(() => {
+            try { controller.enqueue(encoder.encode(": keep-alive\n\n")); } catch { cleanup(); }
+          }, 15000);
+        },
+        async cancel() { cleanup(); },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache, no-transform",
+          "Connection": "keep-alive",
+          "X-Accel-Buffering": "no",
+        },
+      });
+    }
+
     if (c.req.method !== "POST") return c.json(rpcError(null, -32601, "Method not found"), 405);
+
+    // Optional session validation for stream-bound POSTs
+    const sessionId = c.req.query("session_id");
+    if (sessionId) {
+      const session = await c.env.CACHE.get("mcp:session:" + sessionId);
+      if (!session) return c.json(rpcError(null, -32001, "Invalid or expired session"), 401);
+    }
 
     // DNS-rebinding protection: if Origin is present it must be same-origin.
     const origin = c.req.header("origin");
