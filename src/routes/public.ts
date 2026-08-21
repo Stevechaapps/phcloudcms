@@ -176,15 +176,30 @@ export function registerPublicRoutes(app: App): void {
   app.get("/search", async (c) => {
     const q = c.req.query("q") ?? "";
     const db = c.env.DB;
-    const settings = (await getCached(
-      c,
-      "cms:settings",
-      600,
-      async () => await getAllSettings(db),
-    )) as Record<string, string>;
+    const [settings, navVal] = await Promise.all([
+      getCached(
+        c,
+        "cms:settings",
+        600,
+        async () => await getAllSettings(db),
+      ) as Promise<Record<string, string>>,
+      getCached(
+        c,
+        "cms:nav",
+        600,
+        async () => (await getSetting(db, "nav")) ?? "[]",
+      ) as Promise<string>,
+    ]);
     const siteName = settings.site_name ?? "My Site";
     const seoDescription = settings.seo_description ?? "";
     const siteLogo = settings.site_logo ?? null;
+    let nav: NavItem[];
+    try {
+      const p = JSON.parse(navVal);
+      nav = Array.isArray(p) ? p : [];
+    } catch {
+      nav = [];
+    }
     const safeQ = q.replace(/%/g, "\\%").replace(/_/g, "\\_");
 
     let bodyHtml = "<h1>Search</h1>";
@@ -248,7 +263,7 @@ export function registerPublicRoutes(app: App): void {
       },
     });
     return c.html(
-      shellFull(siteName, headPayload.markup as string, bodyHtml, [], siteLogo),
+      shellFull(siteName, headPayload.markup as string, bodyHtml, nav, siteLogo),
     );
   });
 
@@ -256,21 +271,36 @@ export function registerPublicRoutes(app: App): void {
   app.get("/tag/:slug", async (c) => {
     const db = c.env.DB;
     const tagSlug = c.req.param("slug");
-    const settings = (await getCached(
-      c,
-      "cms:settings",
-      600,
-      async () => await getAllSettings(db),
-    )) as Record<string, string>;
+    const [settings, navVal] = await Promise.all([
+      getCached(
+        c,
+        "cms:settings",
+        600,
+        async () => await getAllSettings(db),
+      ) as Promise<Record<string, string>>,
+      getCached(
+        c,
+        "cms:nav",
+        600,
+        async () => (await getSetting(db, "nav")) ?? "[]",
+      ) as Promise<string>,
+    ]);
     const siteName = settings.site_name ?? "My Site";
     const siteLogo = settings.site_logo ?? null;
+    let nav: NavItem[];
+    try {
+      const p = JSON.parse(navVal);
+      nav = Array.isArray(p) ? p : [];
+    } catch {
+      nav = [];
+    }
     const tag = await db
       .prepare("SELECT id, name FROM tags WHERE slug = ?")
       .bind(tagSlug)
       .first<{ id: number; name: string }>();
     if (!tag)
       return c.html(
-        shellFull(siteName, "", '<h1>Tag not found</h1><p><a href="/">Go home</a></p>', [], siteLogo),
+        shellFull(siteName, "", '<h1>Tag not found</h1><p><a href="/">Go home</a></p>', nav, siteLogo),
         404,
       );
 
@@ -533,7 +563,7 @@ export function registerPublicRoutes(app: App): void {
       markup: rssLink,
       meta,
     });
-    let bodyHtml = renderHomepage(siteName, seoDescription, totalPosts);
+    let bodyHtml = renderHomepage(siteName, seoDescription, totalPosts, settings.hero_kicker ?? "");
     if (rows.results.length) {
       bodyHtml += renderPostList(rows.results, siteName);
     } else {
