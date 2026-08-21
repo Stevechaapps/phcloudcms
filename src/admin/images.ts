@@ -36,6 +36,6 @@ return '<div class="image-card">'
 +'<div class="actions"><button class="btn btn-sm btn-danger" onclick="delImg('+img.id+')">Delete</button></div>'
 +'</div></div>'}).join('');
 if(data.totalPages>1)document.getElementById('imgCount').textContent+=' · Page '+data.page+' of '+data.totalPages;});
-function delImg(id){if(!confirm('Delete this image? This action cannot be undone.'))return;fetch('/api/admin/images/'+id,{method:'DELETE'}).then(function(r){if(!r.ok)throw new Error('fail');location.reload()}).catch(function(){toast('Delete failed','err')})}
+function delImg(id){if(!confirm('Delete this image? This action cannot be undone.'))return;fetch('/api/admin/images/'+id,{method:'DELETE',credentials:'include'}).then(function(r){if(!r.ok)throw new Error('fail');location.reload()}).catch(function(){toast('Delete failed','err')})}
 </script>`;
 }

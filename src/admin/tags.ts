@@ -41,7 +41,7 @@ var slug=slugEl.value||nameEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 fetch('/api/admin/tags',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nameEl.value,slug:slug})}).then(function(res){
 if(res.ok){status.style.color='var(--ok)';status.textContent='Added!';nameEl.value='';slugEl.value='';load()}
 else{status.style.color='var(--danger)';status.textContent='Error adding tag'}})});
-function del(id){if(!confirm('Delete tag?'))return;fetch('/api/admin/tags/'+id,{method:'DELETE'}).then(function(r){if(!r.ok)throw new Error('fail');load()}).catch(function(){toast('Delete failed','err')})}
+function del(id){if(!confirm('Delete tag?'))return;fetch('/api/admin/tags/'+id,{method:'DELETE',credentials:'include'}).then(function(r){if(!r.ok)throw new Error('fail');load()}).catch(function(){toast('Delete failed','err')})}
 load();
 </script>`;
 }

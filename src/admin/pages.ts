@@ -28,7 +28,7 @@ tbody.innerHTML=pages.map(function(p){return '<tr>'
 +'<td class="cell-dim">'+new Date(p.updated_at).toLocaleDateString()+'</td>'
 +'<td><div class="row-actions"><a class="btn btn-sm" href="/admin/pages/edit/'+p.id+'">Edit</a><button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button></div></td>'
 +'</tr>'}).join('')});
-function del(id){if(!confirm('Delete this page?'))return;fetch('/api/admin/pages/'+id,{method:'DELETE'}).then(function(r){if(!r.ok)throw new Error('fail');location.reload()}).catch(function(){toast('Delete failed','err')})}
+function del(id){if(!confirm('Delete this page?'))return;fetch('/api/admin/pages/'+id,{method:'DELETE',credentials:'include'}).then(function(r){if(!r.ok)throw new Error('fail');location.reload()}).catch(function(){toast('Delete failed','err')})}
 </script>`;
 }
 

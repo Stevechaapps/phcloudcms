@@ -98,7 +98,7 @@ export function pluginsBody(
     'document.querySelectorAll(".plugin-toggle").forEach(function(cb){cb.addEventListener("change",function(){';
   html += "var id=cb.dataset.plugin;cb.disabled=true;";
   html +=
-    'fetch("/api/admin/plugins/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},';
+    'fetch("/api/admin/plugins/"+id,{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json"},';
   html +=
     "body:JSON.stringify({active:cb.checked})}).then(function(res){cb.disabled=false;";
   html += 'if(!res.ok){cb.checked=!cb.checked;toast("Failed to save","err")}';
