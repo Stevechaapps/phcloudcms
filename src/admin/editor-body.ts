@@ -5,7 +5,14 @@
 
 import { esc } from "../cms/escape.js";
 import { sanitizePostHtml } from "../cms/sanitize.js";
-import { SCHEDULE_TOGGLE_SCRIPT, SCHEDULER_SCRIPT, EDITOR_FORMAT_SCRIPTS, PASTE_IMAGE_SCRIPT, DROP_IMAGE_SCRIPT, RTE_TOOLBAR } from "./editor.js";
+import {
+  SCHEDULE_TOGGLE_SCRIPT,
+  SCHEDULER_SCRIPT,
+  EDITOR_FORMAT_SCRIPTS,
+  PASTE_IMAGE_SCRIPT,
+  DROP_IMAGE_SCRIPT,
+  RTE_TOOLBAR,
+} from "./editor.js";
 
 // ── Editor page CSS (page-local; the shell CSS stays generic) ──────
 const EDITOR_CSS = `
@@ -168,16 +175,32 @@ type EditorPost = {
   updated_at: string;
 };
 
-function editorPage(title: string, mode: "new" | "edit", p: EditorPost): string {
+function editorPage(
+  title: string,
+  mode: "new" | "edit",
+  p: EditorPost,
+): string {
   const id = p.id === null ? "" : String(p.id);
   const checked = p.published == 1 || p.published === "1" ? "checked" : "";
   const hasSchedule = !!p.publish_at;
   const scheduleChecked = hasSchedule ? "checked" : "";
-  const previewLink = mode === "edit" && p.preview_token ? "/" + p.slug + "?preview=" + p.preview_token : "";
-  const hourOpts = Array.from({ length: 12 }, (_, i) => '<option value="' + (i + 1) + '">' + (i + 1) + "</option>").join("");
-  const minOpts = Array.from({ length: 60 }, (_, i) => '<option value="' + i + '">' + (i < 10 ? "0" : "") + i + "</option>").join("");
+  const previewLink =
+    mode === "edit" && p.preview_token
+      ? "/" + p.slug + "?preview=" + p.preview_token
+      : "";
+  const hourOpts = Array.from(
+    { length: 12 },
+    (_, i) => '<option value="' + (i + 1) + '">' + (i + 1) + "</option>",
+  ).join("");
+  const minOpts = Array.from(
+    { length: 60 },
+    (_, i) =>
+      '<option value="' + i + '">' + (i < 10 ? "0" : "") + i + "</option>",
+  ).join("");
   const dt = p.publish_at
-    ? "var dt=phLocalFromUtc(" + JSON.stringify(p.publish_at) + ");if(dt){$('publish_date').value=dt.date;$('publish_hour').value=dt.hour;$('publish_minute').value=dt.minute;$('publish_ampm').value=dt.ampm}"
+    ? "var dt=phLocalFromUtc(" +
+      JSON.stringify(p.publish_at) +
+      ");if(dt){$('publish_date').value=dt.date;$('publish_hour').value=dt.hour;$('publish_minute').value=dt.minute;$('publish_ampm').value=dt.ampm}"
     : "";
 
   return `<div class="page-head">
@@ -256,7 +279,7 @@ ${mode === "edit" ? '<div class="aside-card"><h3>Version history</h3><div id="ve
 </form>
 <div class="preview-overlay" id="previewPane" hidden role="dialog" aria-modal="true" aria-label="Live preview">
 <div class="preview-bar"><span>Live preview — renders through your theme</span><div class="flex"><button type="button" class="btn btn-sm pv-btn active" data-mode="full">Desktop</button><button type="button" class="btn btn-sm pv-btn" data-mode="tablet">Tablet</button><button type="button" class="btn btn-sm pv-btn" data-mode="mobile">Mobile</button></div><div class="flex"><button type="button" class="btn btn-sm" id="pvRefresh" title="Refresh preview">↻</button><button type="button" class="btn btn-sm" id="previewClose">Close</button></div></div>
-<iframe class="preview-frame" id="previewFrame" title="Live preview" sandbox="allow-same-origin"></iframe>
+<iframe class="preview-frame" id="previewFrame" title="Live preview" sandbox="allow-same-origin allow-scripts" csp="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'"></iframe>
 </div>
 <style>${EDITOR_CSS}</style>
 <script>${SCHEDULE_TOGGLE_SCRIPT}</script>

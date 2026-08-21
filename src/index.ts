@@ -34,23 +34,34 @@ app.use("*", async (c, next) => {
   // admin body function. This runs after the handler generates the HTML.
   if (c.res && /text\/html/.test(c.res.headers.get("content-type") ?? "")) {
     const text = await c.res.text();
-    const mod = text.replace(/<script(?![^>]*\bnonce=)(?![^>]*\bsrc=)/g, '<script nonce="' + nonce + '"');
-    c.res = new Response(mod, { status: c.res.status, headers: c.res.headers });
+    const mod = text.replace(
+      /<script(?![^>]*\bnonce=)(?![^>]*\bsrc=)/g,
+      '<script nonce="' + nonce + '"',
+    );
+    const headers = new Headers(c.res.headers);
+    // No-store so the browser never serves a stale HTML body (scripts without
+    // the current nonce) against a fresh CSP header (which carries this
+    // request's nonce) — that mismatch is what trips script-src-elem.
+    headers.set("Cache-Control", "no-store");
+    c.res = new Response(mod, { status: c.res.status, headers });
   }
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
   c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  c.header("Content-Security-Policy", [
-    "default-src 'self'",
-    "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'",
-    "script-src-attr 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
-    "connect-src 'self'",
-    "frame-ancestors 'none'",
-  ].join("; "));
+  c.header(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'",
+      "script-src-attr 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+    ].join("; "),
+  );
 });
 
 // ── Routes (catch-all registered last) ──────────────────────────────
