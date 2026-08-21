@@ -97,8 +97,22 @@ const TOOLS = [
         excerpt: { type: "string", description: "Plain-text excerpt; auto-generated if omitted" },
         published: { type: "boolean", description: "Publish immediately (default false)" },
         type: { type: "string", enum: ["post", "page"], description: "Content type: post or page (default: post)" },
+        add_to_nav: { type: "boolean", description: "If true and type=page, add this page to navigation menu" },
       },
       required: ["title"],
+    },
+  },
+  {
+    name: "delete_post",
+    title: "Delete post",
+    description: "Permanently delete a post or page by id or slug.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "integer", description: "Post/page id" },
+        slug: { type: "string", description: "Post/page slug" },
+        type: { type: "string", enum: ["post", "page"], description: "Content type filter when using slug" },
+      },
     },
   },
   {
@@ -322,20 +336,70 @@ async function handleToolCall(c: MCPCtx, id: unknown, name: string, args: Record
       if (!excerpt.trim()) excerpt = autoExcerpt(content);
       const published = args.published === true ? 1 : 0;
       const type = args.type === "page" ? "page" : "post";
+      const addToNav = type === "page" && args.add_to_nav === true;
       const now = new Date().toISOString();
       try {
         const result = await db
           .prepare("INSERT INTO posts (title, slug, content, excerpt, published, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
           .bind(title, slug, content, excerpt, published, type, now, now)
           .run();
+        const newId = result.meta.last_row_id;
         await c.env.CACHE.delete("cms:posts:pub");
         await c.env.CACHE.delete("cms:homepage");
-        const out = { id: result.meta.last_row_id, slug, published: published === 1, type };
-        return sseResponse(c, toolResult(id, "Created " + type + " #" + out.id + " at /" + slug, out));
+        const out = { id: newId, slug, published: published === 1, type };
+        let msg = "Created " + type + " #" + newId + " at /" + slug;
+        if (addToNav) {
+          const navVal = await getSetting(db, "nav");
+          let nav: NavItem[] = [];
+          try { const p = navVal ? JSON.parse(navVal) : []; nav = Array.isArray(p) ? p : []; } catch {}
+          nav.push({ label: title, url: "/" + slug });
+          await db
+            .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('nav', ?)")
+            .bind(JSON.stringify(nav))
+            .run();
+          await c.env.CACHE.delete("cms:nav");
+          await c.env.CACHE.delete("cms:settings");
+          msg += " and added to navigation";
+        }
+        return sseResponse(c, toolResult(id, msg, out));
       } catch (e: any) {
         if (String(e?.message ?? "").includes("UNIQUE")) return sseResponse(c, toolError(id, "A " + type + " with this slug already exists"));
         throw e;
       }
+    }
+
+    if (name === "delete_post") {
+      const typeFilter = args.type === "page" ? "page" : args.type === "post" ? "post" : null;
+      const whereId = args.id !== undefined
+        ? "id = ?"
+        : args.slug
+          ? "slug = ?" + (typeFilter ? " AND type = '" + typeFilter + "'" : "")
+          : null;
+      if (!whereId) return sseResponse(c, toolError(id, "Provide id or slug"));
+      const bindVal = args.id !== undefined ? Number(args.id) : String(args.slug);
+      const existing = await db.prepare("SELECT * FROM posts WHERE " + whereId).bind(bindVal).first();
+      if (!existing) return sseResponse(c, toolError(id, "Post/page not found"));
+      const cur = existing as any;
+      await db.prepare("DELETE FROM posts WHERE id = ?").bind(cur.id).run();
+      if (cur.type === "post") {
+        await db.prepare("DELETE FROM post_tags WHERE post_id = ?").bind(cur.id).run();
+      }
+      await c.env.CACHE.delete("cms:posts:pub");
+      await c.env.CACHE.delete("cms:homepage");
+      // Remove from nav if present
+      const navVal = await getSetting(db, "nav");
+      let nav: NavItem[] = [];
+      try { const p = navVal ? JSON.parse(navVal) : []; nav = Array.isArray(p) ? p : []; } catch {}
+      const newNav = nav.filter((n) => n.url !== "/" + cur.slug && n.url !== cur.slug);
+      if (newNav.length !== nav.length) {
+        await db
+          .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('nav', ?)")
+          .bind(JSON.stringify(newNav))
+          .run();
+        await c.env.CACHE.delete("cms:nav");
+        await c.env.CACHE.delete("cms:settings");
+      }
+      return sseResponse(c, toolResult(id, "Deleted " + cur.type + " #" + cur.id + " (" + cur.slug + ")", { id: cur.id, slug: cur.slug }));
     }
 
     if (name === "update_post") {
