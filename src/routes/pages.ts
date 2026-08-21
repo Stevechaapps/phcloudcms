@@ -3,6 +3,7 @@
 
 import { requireAuth } from "../cms/auth.js";
 import { App, SLUG_RE, parseJsonBody } from "../cms/env.js";
+import { getSetting, setSetting } from "../cms/d1.js";
 import { DbPost } from "../cms/render.js";
 import { sanitizePostHtml } from "../cms/sanitize.js";
 import { adminShell, pagesBody, newPageBody, editPageBody } from "../admin.js";
@@ -16,25 +17,57 @@ export function registerPageRoutes(app: App): void {
     const title = String(body.title ?? "").trim();
     const slug = String(body.slug ?? "").trim();
     if (!title) return c.json({ error: "Title is required" }, 400);
-    if (!slug || !SLUG_RE.test(slug)) return c.json({ error: "Invalid slug" }, 400);
+    if (!slug || !SLUG_RE.test(slug))
+      return c.json({ error: "Invalid slug" }, 400);
     const db = c.env.DB;
     const now = new Date().toISOString();
     let result;
     try {
-      const metaTitle = String(body.meta_title ?? "").trim().slice(0, 60);
-      const metaDescription = String(body.meta_description ?? "").trim().slice(0, 160);
-      const excerpt = String(body.excerpt ?? "").trim().slice(0, 255);
+      const metaTitle = String(body.meta_title ?? "")
+        .trim()
+        .slice(0, 60);
+      const metaDescription = String(body.meta_description ?? "")
+        .trim()
+        .slice(0, 160);
+      const excerpt = String(body.excerpt ?? "")
+        .trim()
+        .slice(0, 255);
       result = await db
         .prepare(
           "INSERT INTO posts (title, slug, content, excerpt, type, published, meta_title, meta_description, created_at, updated_at) VALUES (?, ?, ?, ?, 'page', ?, ?, ?, ?, ?)",
         )
-        .bind(title, slug, sanitizePostHtml(String(body.content ?? "")), excerpt, body.published === true ? 1 : 0, metaTitle, metaDescription, now, now)
+        .bind(
+          title,
+          slug,
+          sanitizePostHtml(String(body.content ?? "")),
+          excerpt,
+          body.published === true ? 1 : 0,
+          metaTitle,
+          metaDescription,
+          now,
+          now,
+        )
         .run();
     } catch (e: any) {
-      if (String(e?.message ?? "").includes("UNIQUE")) return c.json({ error: "A page with this slug already exists" }, 409);
+      if (String(e?.message ?? "").includes("UNIQUE"))
+        return c.json({ error: "A page with this slug already exists" }, 409);
       throw e;
     }
+    // Auto-nav: a newly PUBLISHED page joins the header nav so it's always
+    // reachable (user rule: "if I create a page it should be in the nav").
+    // Drafts skip this — their URLs would 404 for visitors until published.
+    if (body.published === true) {
+      const nav = JSON.parse((await getSetting(db, "nav")) ?? "[]");
+      if (
+        Array.isArray(nav) &&
+        !nav.some((n: { url: string }) => n.url === "/" + slug)
+      ) {
+        nav.push({ label: title, url: "/" + slug });
+        await setSetting(db, "nav", JSON.stringify(nav));
+      }
+    }
     await c.env.CACHE.delete("cms:homepage");
+    await c.env.CACHE.delete("cms:nav");
     return c.json({ ok: true, id: result.meta.last_row_id });
   });
 
@@ -74,9 +107,15 @@ export function registerPageRoutes(app: App): void {
     const body = await parseJsonBody(c);
     if (!body) return c.json({ error: "Invalid JSON" }, 400);
     const now = new Date().toISOString();
-    const metaTitle = String(body.meta_title ?? "").trim().slice(0, 60);
-    const metaDescription = String(body.meta_description ?? "").trim().slice(0, 160);
-    const excerpt = String(body.excerpt ?? "").trim().slice(0, 255);
+    const metaTitle = String(body.meta_title ?? "")
+      .trim()
+      .slice(0, 60);
+    const metaDescription = String(body.meta_description ?? "")
+      .trim()
+      .slice(0, 160);
+    const excerpt = String(body.excerpt ?? "")
+      .trim()
+      .slice(0, 255);
     const result = await c.env.DB.prepare(
       "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, meta_title=?, meta_description=?, updated_at=? WHERE id=? AND type='page'",
     )
@@ -92,7 +131,8 @@ export function registerPageRoutes(app: App): void {
         c.req.param("id"),
       )
       .run();
-    if (result.meta.changes === 0) return c.json({ error: "Page not found" }, 404);
+    if (result.meta.changes === 0)
+      return c.json({ error: "Page not found" }, 404);
     await c.env.CACHE.delete("cms:homepage");
     return c.json({ ok: true });
   });
@@ -100,10 +140,13 @@ export function registerPageRoutes(app: App): void {
   app.delete("/api/admin/pages/:id", async (c) => {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return auth;
-    const result = await c.env.DB.prepare("DELETE FROM posts WHERE id = ? AND type = 'page'")
+    const result = await c.env.DB.prepare(
+      "DELETE FROM posts WHERE id = ? AND type = 'page'",
+    )
       .bind(c.req.param("id"))
       .run();
-    if (result.meta.changes === 0) return c.json({ error: "Page not found" }, 404);
+    if (result.meta.changes === 0)
+      return c.json({ error: "Page not found" }, 404);
     await c.env.CACHE.delete("cms:homepage");
     return c.json({ ok: true });
   });

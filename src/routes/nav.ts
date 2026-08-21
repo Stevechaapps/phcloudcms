@@ -20,6 +20,9 @@ export function registerNavRoutes(app: App): void {
       .bind(JSON.stringify(items))
       .run();
     await c.env.CACHE.delete("cms:settings");
+    // Readers cache the nav under its own key (getCached "cms:nav", 600s) —
+    // without this delete, saved menus went live only after TTL expiry.
+    await c.env.CACHE.delete("cms:nav");
     return c.json({ ok: true });
   });
 
@@ -28,7 +31,12 @@ export function registerNavRoutes(app: App): void {
     if (auth instanceof Response) return auth;
     const val = await getSetting(c.env.DB, "nav");
     let navParsed: NavItem[];
-    try { const p = val ? JSON.parse(val) : []; navParsed = Array.isArray(p) ? p : []; } catch { navParsed = []; }
+    try {
+      const p = val ? JSON.parse(val) : [];
+      navParsed = Array.isArray(p) ? p : [];
+    } catch {
+      navParsed = [];
+    }
     return c.json(navParsed);
   });
 
