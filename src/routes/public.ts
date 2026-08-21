@@ -438,7 +438,7 @@ export function registerPublicRoutes(app: App): void {
       if (previewToken) {
         post = await db
           .prepare(
-            "SELECT id, slug, title, content, excerpt, updated_at, type, publish_at FROM posts WHERE slug = ? AND preview_token = ?",
+            "SELECT id, slug, title, content, excerpt, meta_description, updated_at, type, publish_at FROM posts WHERE slug = ? AND preview_token = ?",
           )
           .bind(slug, previewToken)
           .first<{
@@ -447,6 +447,7 @@ export function registerPublicRoutes(app: App): void {
             title: string;
             content: string;
             excerpt: string;
+            meta_description: string | null;
             updated_at: string;
             type: string;
             publish_at: string | null;
@@ -454,7 +455,7 @@ export function registerPublicRoutes(app: App): void {
       } else {
         post = await db
           .prepare(
-            "SELECT id, slug, title, content, excerpt, updated_at, type, publish_at FROM posts WHERE slug = ? AND published = 1",
+            "SELECT id, slug, title, content, excerpt, meta_description, updated_at, type, publish_at FROM posts WHERE slug = ? AND published = 1",
           )
           .bind(slug)
           .first<{
@@ -463,6 +464,7 @@ export function registerPublicRoutes(app: App): void {
             title: string;
             content: string;
             excerpt: string;
+            meta_description: string | null;
             updated_at: string;
             type: string;
             publish_at: string | null;
@@ -510,15 +512,18 @@ export function registerPublicRoutes(app: App): void {
       const ogImage =
         extractFirstImage(post.content, origin) ??
         (siteLogo ? origin + siteLogo : "");
+      // SEO description: the editor's meta_description field wins when set;
+      // excerpt is only the fallback. (og:description shares the same value.)
+      const seoDesc = post.meta_description || post.excerpt || "";
       const headPayload = await registry.executePipeline("render:head", {
         siteName,
         title: post.title,
-        description: post.excerpt ?? "",
+        description: seoDesc,
         markup: "",
         post,
         meta: {
           title: post.title,
-          description: post.excerpt ?? "",
+          description: seoDesc,
           url: origin + c.req.path,
           image: ogImage,
         },
