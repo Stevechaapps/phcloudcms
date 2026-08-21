@@ -172,7 +172,7 @@ export function renderHomepage(
     '<div class="meta-row"><span>' +
     postCount +
     (postCount === 1 ? " post</span>" : " posts</span>") +
-    '<span class="dot" aria-hidden="true">·</span><a href="/feed.xml">RSS</a><span class="dot" aria-hidden="true">·</span><a href="/sitemap.xml">Sitemap</a></div>';
+    "</div>";
   return (
     '<section class="hero">' +
     kickerHtml +
