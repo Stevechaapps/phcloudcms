@@ -534,8 +534,11 @@ export function registerPublicRoutes(app: App): void {
         '<script type="application/ld+json">' +
         JSON.stringify({
           "@context": "https://schema.org",
-          "@type": "BlogPosting",
-          headline: post.title,
+          // Pages are not blog articles — schema type must match.
+          "@type": post.type === "page" ? "WebPage" : "BlogPosting",
+          ...(post.type === "page"
+            ? { name: post.title }
+            : { headline: post.title }),
           description: post.excerpt || "",
           datePublished: post.updated_at,
           dateModified: post.updated_at,

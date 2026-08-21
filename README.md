@@ -113,7 +113,7 @@ One Worker entry (src/index.ts)
 
 | Header / Setting | Value |
 |---|---|
-| Content-Security-Policy | `default-src 'self'`; nonce-bound scripts |
+| Content-Security-Policy | `default-src 'self'`; scripts restricted to self + inline theme JS |
 | Strict-Transport-Security | `max-age=31536000; includeSubDomains` |
 | X-Frame-Options | DENY |
 | X-Content-Type-Options | nosniff |

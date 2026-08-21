@@ -158,8 +158,9 @@ if(!t.res.ok){setStatus(t.data.error||'Error saving post','var(--danger)');retur
 clearDraft();setStatus('Saved!','var(--ok)');
 if(editorState.id){loadVersions();setTimeout(function(){setStatus('')},2000)}
 else{setTimeout(function(){location.href='/admin/edit/'+t.data.id},600)}}).catch(function(){setStatus('Save failed — check your connection.','var(--danger)')})});
-// ── boot ──
-loadTags();loadVersions();checkDraft();seoSnippet();refreshUsage();`;
+// ── boot ── (loadVersions/checkDraft need editorState.id/draftKey, which are
+// set in the init script below — calling them here silently no-ops)
+loadTags();seoSnippet();refreshUsage();`;
 
 type EditorPost = {
   id: string | number | null;
@@ -296,6 +297,7 @@ ${EDITOR_JS}
 editorState.id=${id === "" ? "null" : JSON.stringify(Number(id))};
 editorState.draftKey='phcloud:draft:'+(editorState.id?'post-'+editorState.id:'new-untitled');
 editorState.initial=JSON.stringify(draftData());
+loadVersions();checkDraft();
 ${dt}
 </script>`;
 }

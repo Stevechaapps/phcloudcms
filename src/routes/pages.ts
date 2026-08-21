@@ -2,11 +2,45 @@
 // (Phase 2c extraction from index.ts.)
 
 import { requireAuth } from "../cms/auth.js";
-import { App, SLUG_RE, parseJsonBody } from "../cms/env.js";
+import { App, SLUG_RE, parseJsonBody, Env } from "../cms/env.js";
 import { getSetting, setSetting } from "../cms/d1.js";
-import { DbPost } from "../cms/render.js";
+import { DbPost, NavItem } from "../cms/render.js";
 import { sanitizePostHtml } from "../cms/sanitize.js";
 import { adminShell, pagesBody, newPageBody, editPageBody } from "../admin.js";
+
+// ── nav sync helpers ──────────────────────────────────────────────
+// Published pages live in the header nav (user rule). Every mutation path
+// routes through these so labels/URLs never go stale and a corrupt saved
+// nav can't 500 a page create/update (guarded parse).
+async function parseNav(db: D1Database): Promise<NavItem[]> {
+  const navVal = await getSetting(db, "nav");
+  try {
+    const p = navVal ? JSON.parse(navVal) : [];
+    return Array.isArray(p) ? p : [];
+  } catch {
+    return [];
+  }
+}
+
+async function addNavEntry(
+  env: Env,
+  label: string,
+  slug: string,
+): Promise<void> {
+  const nav = await parseNav(env.DB);
+  if (nav.some((n) => n.url === "/" + slug)) return;
+  nav.push({ label, url: "/" + slug });
+  await setSetting(env.DB, "nav", JSON.stringify(nav));
+  await env.CACHE.delete("cms:nav");
+}
+
+async function dropNavEntry(env: Env, slug: string): Promise<void> {
+  const nav = await parseNav(env.DB);
+  const next = nav.filter((n) => n.url !== "/" + slug && n.url !== slug);
+  if (next.length === nav.length) return;
+  await setSetting(env.DB, "nav", JSON.stringify(next));
+  await env.CACHE.delete("cms:nav");
+}
 
 export function registerPageRoutes(app: App): void {
   app.post("/api/admin/pages", async (c) => {
@@ -56,18 +90,8 @@ export function registerPageRoutes(app: App): void {
     // Auto-nav: a newly PUBLISHED page joins the header nav so it's always
     // reachable (user rule: "if I create a page it should be in the nav").
     // Drafts skip this — their URLs would 404 for visitors until published.
-    if (body.published === true) {
-      const nav = JSON.parse((await getSetting(db, "nav")) ?? "[]");
-      if (
-        Array.isArray(nav) &&
-        !nav.some((n: { url: string }) => n.url === "/" + slug)
-      ) {
-        nav.push({ label: title, url: "/" + slug });
-        await setSetting(db, "nav", JSON.stringify(nav));
-      }
-    }
+    if (body.published === true) await addNavEntry(c.env, title, slug);
     await c.env.CACHE.delete("cms:homepage");
-    await c.env.CACHE.delete("cms:nav");
     return c.json({ ok: true, id: result.meta.last_row_id });
   });
 
@@ -106,6 +130,17 @@ export function registerPageRoutes(app: App): void {
     if (auth instanceof Response) return auth;
     const body = await parseJsonBody(c);
     if (!body) return c.json({ error: "Invalid JSON" }, 400);
+    const title = String(body.title ?? "").trim();
+    const slug = String(body.slug ?? "").trim();
+    if (!title) return c.json({ error: "Title is required" }, 400);
+    if (!slug || !SLUG_RE.test(slug))
+      return c.json({ error: "Invalid slug" }, 400);
+    // Current row is needed to sync the nav when slug/title/published change.
+    const existing = await c.env.DB.prepare(
+      "SELECT slug FROM posts WHERE id = ? AND type = 'page'",
+    )
+      .bind(c.req.param("id"))
+      .first<{ slug: string }>();
     const now = new Date().toISOString();
     const metaTitle = String(body.meta_title ?? "")
       .trim()
@@ -116,23 +151,34 @@ export function registerPageRoutes(app: App): void {
     const excerpt = String(body.excerpt ?? "")
       .trim()
       .slice(0, 255);
-    const result = await c.env.DB.prepare(
-      "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, meta_title=?, meta_description=?, updated_at=? WHERE id=? AND type='page'",
-    )
-      .bind(
-        String(body.title ?? ""),
-        String(body.slug ?? ""),
-        sanitizePostHtml(String(body.content ?? "")),
-        excerpt,
-        body.published === true ? 1 : 0,
-        metaTitle,
-        metaDescription,
-        now,
-        c.req.param("id"),
+    let result;
+    try {
+      result = await c.env.DB.prepare(
+        "UPDATE posts SET title=?, slug=?, content=?, excerpt=?, published=?, meta_title=?, meta_description=?, updated_at=? WHERE id=? AND type='page'",
       )
-      .run();
+        .bind(
+          title,
+          slug,
+          sanitizePostHtml(String(body.content ?? "")),
+          excerpt,
+          body.published === true ? 1 : 0,
+          metaTitle,
+          metaDescription,
+          now,
+          c.req.param("id"),
+        )
+        .run();
+    } catch (e: any) {
+      if (String(e?.message ?? "").includes("UNIQUE"))
+        return c.json({ error: "A page with this slug already exists" }, 409);
+      throw e;
+    }
     if (result.meta.changes === 0)
       return c.json({ error: "Page not found" }, 404);
+    // Nav sync: drop the stale entry (old slug/label/publish state), then a
+    // still-published page re-joins under its current slug and title.
+    if (existing) await dropNavEntry(c.env, existing.slug);
+    if (body.published === true) await addNavEntry(c.env, title, slug);
     await c.env.CACHE.delete("cms:homepage");
     return c.json({ ok: true });
   });
@@ -140,6 +186,11 @@ export function registerPageRoutes(app: App): void {
   app.delete("/api/admin/pages/:id", async (c) => {
     const auth = await requireAuth(c);
     if (auth instanceof Response) return auth;
+    const existing = await c.env.DB.prepare(
+      "SELECT slug FROM posts WHERE id = ? AND type = 'page'",
+    )
+      .bind(c.req.param("id"))
+      .first<{ slug: string }>();
     const result = await c.env.DB.prepare(
       "DELETE FROM posts WHERE id = ? AND type = 'page'",
     )
@@ -147,6 +198,7 @@ export function registerPageRoutes(app: App): void {
       .run();
     if (result.meta.changes === 0)
       return c.json({ error: "Page not found" }, 404);
+    if (existing) await dropNavEntry(c.env, existing.slug);
     await c.env.CACHE.delete("cms:homepage");
     return c.json({ ok: true });
   });

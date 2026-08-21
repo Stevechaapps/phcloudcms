@@ -47,7 +47,8 @@ const seoHook: PluginHook = (payload) => {
 
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
-    "@type": isArticle ? "Article" : "WebSite",
+    "@type":
+      post?.type === "page" ? "WebPage" : isArticle ? "Article" : "WebSite",
     ...(isArticle
       ? {
           headline: post.title,
@@ -65,6 +66,8 @@ const seoHook: PluginHook = (payload) => {
 
   return {
     ...payload,
-    markup: `${tags.join("\n    ")}\n    <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>\n    ${payload.markup ?? ""}`,
+    // Escape "<" so content containing "</script>" can't break out of the
+    // ld+json block (same defense as the catch-all's JSON-LD in public.ts).
+    markup: `${tags.join("\n    ")}\n    <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>\n    ${payload.markup ?? ""}`,
   };
 };
