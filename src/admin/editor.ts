@@ -36,6 +36,7 @@ export const RTE_TOOLBAR =
   '<span class="sep"></span>' +
   '<button type="button" onmousedown="event.preventDefault()" onclick="rteLink(event)" title="Link" aria-label="Insert link">Link</button>' +
   '<button type="button" onmousedown="event.preventDefault()" onclick="rteImg(event)" title="Image by URL" aria-label="Insert image by URL">Img</button>' +
+  '<button type="button" onmousedown="event.preventDefault()" onclick="rteUpload(event)" title="Upload image" aria-label="Upload image">Upload</button>' +
   '<span class="sep"></span>' +
   '<button type="button" onmousedown="event.preventDefault()" onclick="rteHead(\'<blockquote>\')" title="Blockquote" aria-label="Insert blockquote">Quote</button>' +
   '<button type="button" onmousedown="event.preventDefault()" onclick="rteCmd(\'insertUnorderedList\')" title="List item" aria-label="Insert list item">List</button>' +
@@ -47,7 +48,7 @@ export const RTE_TOOLBAR =
 // command acts on) AND from onclick, so the buttons are also fully operable
 // from the keyboard (Enter/Space fire click). (DOM: #content, a contenteditable div.)
 export const EDITOR_FORMAT_SCRIPTS = `function rteCmd(c){document.execCommand(c,false,null);rteSync()}
-function rteHead(h){document.execCommand('formatBlock',false,h);rteSync()}
+function rteHead(h){var cur=String(qVal('formatBlock')||'').toLowerCase().replace(/[<>]/g,'');document.execCommand('formatBlock',false,cur===h.replace(/[<>]/g,'').toLowerCase()?'<p>':h);rteSync()}
 function rteEsc(s){return String(s).replace(/&/g,'&'+'amp;').replace(/</g,'&'+'lt;').replace(/>/g,'&'+'gt;').replace(/"/g,'&'+'quot;')}
 // Mirror of the server-side safeUrl so a javascript:/data: scheme can't even
 // enter the editor buffer (the server re-checks on write either way).
@@ -60,6 +61,10 @@ if(hasSel){document.execCommand('createLink',false,u);rteSync();return}
 var t=prompt('Link text (shown for the link):',u);if(t===null)return;if(!t)t=u;
 document.execCommand('insertHTML',false,'<a href="'+rteEsc(u)+'">'+rteEsc(t)+'</a>');rteSync()}
 function rteImg(e){e.preventDefault();var u=prompt('Image URL:','');if(u){document.execCommand('insertImage',false,u);rteAlt()}}
+// File-picker upload: builds a throwaway <input type=file>, then reuses the
+// same resize/upload/insert pipeline as paste/drop (uploadImage lives in
+// PASTE_IMAGE_SCRIPT, loaded by both the post and page editors).
+function rteUpload(e){e.preventDefault();var i=document.createElement('input');i.type='file';i.accept='image/*';i.onchange=function(){var f=i.files&&i.files[0];if(!f)return;if(typeof uploadImage!=='function'){alert('Uploader not loaded');return}var c=document.getElementById('content');c.focus();uploadImage(f,c,rteSave(c),f.name||'upload.webp')};i.click()}
 function rteAlt(){var c=document.getElementById('content');if(!c)return;var imgs=c.querySelectorAll('img');if(!imgs.length)return;var img=imgs[imgs.length-1];if(img.hasAttribute('alt'))return;var a=prompt('Alt text (describe the image; leave empty if decorative):','');img.setAttribute('alt',a==null?'':a)}
 function rteSave(c){try{return window.getSelection().getRangeAt(0).cloneRange()}catch(x){var r=document.createRange();r.selectNodeContents(c);r.collapse(false);return r}}
 function rteRestore(c,r){c.focus();var s=window.getSelection();s.removeAllRanges();s.addRange(r)}

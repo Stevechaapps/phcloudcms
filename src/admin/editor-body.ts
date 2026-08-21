@@ -288,11 +288,15 @@ ${mode === "edit" ? '<div class="aside-card"><h3>Version history</h3><div id="ve
 <script>${PASTE_IMAGE_SCRIPT}</script>
 <script>${DROP_IMAGE_SCRIPT}</script>
 <script>
+${EDITOR_JS}
+// Init MUST run after EDITOR_JS: draftData()/slugEl/titleEl don't exist until
+// its assignments execute. Running init first threw a TypeError that aborted
+// this whole script block — killing save, AI, tags, and autosave while the
+// hoisted toolbar functions kept working (why the bug looked partial).
 editorState.id=${id === "" ? "null" : JSON.stringify(Number(id))};
-editorState.draftKey='phcloud:draft:'+(editorState.id||'new-'+slugEl.value||'untitled');
+editorState.draftKey='phcloud:draft:'+(editorState.id?'post-'+editorState.id:'new-untitled');
 editorState.initial=JSON.stringify(draftData());
 ${dt}
-${EDITOR_JS}
 </script>`;
 }
 
