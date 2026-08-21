@@ -6,7 +6,8 @@
 --   npx wrangler d1 execute phcloud-db --local --file=backfill.sql
 --   npx wrangler d1 execute phcloud-db --remote --file=backfill.sql
 --
--- After this runs cleanly, new installs will use runMigrations() from cms/migrations.ts.
+-- Fresh installs create the full schema via the /install onboarding flow;
+-- this file only exists to upgrade databases created before that flow.
 
 -- ── 0. Create migration tracking table ─────────────────────────────────────
 -- If this table already exists (from a prior backfill run), skip gracefully.
