@@ -86,15 +86,16 @@ const TOOLS = [
   {
     name: "create_post",
     title: "Create post",
-    description: "Create a new draft (or published) post. Returns the new post's id and slug.",
+    description: "Create a new draft (or published) post or page. Returns the new post's id and slug.",
     inputSchema: {
       type: "object",
       properties: {
-        title: { type: "string", description: "Post title (required)" },
+        title: { type: "string", description: "Post/page title (required)" },
         slug: { type: "string", description: "URL slug; auto-generated from title if omitted" },
-        content: { type: "string", description: "Post content as sanitized HTML" },
+        content: { type: "string", description: "Content as sanitized HTML" },
         excerpt: { type: "string", description: "Plain-text excerpt; auto-generated if omitted" },
         published: { type: "boolean", description: "Publish immediately (default false)" },
+        type: { type: "string", enum: ["post", "page"], description: "Content type: post or page (default: post)" },
       },
       required: ["title"],
     },
@@ -102,31 +103,33 @@ const TOOLS = [
   {
     name: "update_post",
     title: "Update post",
-    description: "Update fields of an existing post identified by id or slug. Only provided fields change.",
+    description: "Update fields of an existing post or page identified by id or slug. Only provided fields change.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "integer", description: "Post id" },
-        slug: { type: "string", description: "Post slug" },
+        id: { type: "integer", description: "Post/page id" },
+        slug: { type: "string", description: "Post/page slug" },
         title: { type: "string", description: "New title" },
         content: { type: "string", description: "New content as sanitized HTML" },
         excerpt: { type: "string", description: "New excerpt" },
         published: { type: "boolean", description: "Publish or unpublish" },
         meta_title: { type: "string", description: "SEO meta title (max 60 chars)" },
         meta_description: { type: "string", description: "SEO meta description (max 160 chars)" },
+        type: { type: "string", enum: ["post", "page"], description: "Content type filter when using slug: post or page" },
       },
     },
   },
   {
     name: "publish_post",
     title: "Publish post",
-    description: "Publish (or with publish=false, unpublish) a post by id or slug.",
+    description: "Publish (or with publish=false, unpublish) a post or page by id or slug.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "integer", description: "Post id" },
-        slug: { type: "string", description: "Post slug" },
+        id: { type: "integer", description: "Post/page id" },
+        slug: { type: "string", description: "Post/page slug" },
         publish: { type: "boolean", description: "True to publish, false to unpublish (default true)" },
+        type: { type: "string", enum: ["post", "page"], description: "Content type filter when using slug" },
       },
     },
   },
@@ -264,12 +267,13 @@ async function handleToolCall(c: MCPCtx, id: unknown, name: string, args: Record
     }
 
     if (name === "get_post") {
+      const typeFilter = args.type === "page" ? "page" : args.type === "post" ? "post" : null;
       const post = args.id !== undefined
         ? await db.prepare("SELECT * FROM posts WHERE id = ?").bind(Number(args.id)).first()
         : args.slug
-          ? await db.prepare("SELECT * FROM posts WHERE slug = ? AND type = 'post'").bind(String(args.slug)).first()
+          ? await db.prepare("SELECT * FROM posts WHERE slug = ?" + (typeFilter ? " AND type = ?" : "")).bind(String(args.slug), ...(typeFilter ? [typeFilter] : [])).first()
           : null;
-      if (!post) return sseResponse(c, toolError(id, "Post not found"));
+      if (!post) return sseResponse(c, toolError(id, "Post/page not found"));
       const tags = await db
         .prepare("SELECT t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = ?")
         .bind((post as any).id)
@@ -288,27 +292,34 @@ async function handleToolCall(c: MCPCtx, id: unknown, name: string, args: Record
       let excerpt = String(args.excerpt ?? autoExcerpt(content)).slice(0, 255);
       if (!excerpt.trim()) excerpt = autoExcerpt(content);
       const published = args.published === true ? 1 : 0;
+      const type = args.type === "page" ? "page" : "post";
       const now = new Date().toISOString();
       try {
         const result = await db
-          .prepare("INSERT INTO posts (title, slug, content, excerpt, published, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-          .bind(title, slug, content, excerpt, published, now, now)
+          .prepare("INSERT INTO posts (title, slug, content, excerpt, published, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+          .bind(title, slug, content, excerpt, published, type, now, now)
           .run();
         await c.env.CACHE.delete("cms:posts:pub");
         await c.env.CACHE.delete("cms:homepage");
-        const out = { id: result.meta.last_row_id, slug, published: published === 1 };
-        return sseResponse(c, toolResult(id, "Created post #" + out.id + " at /" + slug, out));
+        const out = { id: result.meta.last_row_id, slug, published: published === 1, type };
+        return sseResponse(c, toolResult(id, "Created " + type + " #" + out.id + " at /" + slug, out));
       } catch (e: any) {
-        if (String(e?.message ?? "").includes("UNIQUE")) return sseResponse(c, toolError(id, "A post with this slug already exists"));
+        if (String(e?.message ?? "").includes("UNIQUE")) return sseResponse(c, toolError(id, "A " + type + " with this slug already exists"));
         throw e;
       }
     }
 
     if (name === "update_post") {
-      const whereId = args.id !== undefined ? "id = ?" : args.slug ? "slug = ? AND type = 'post'" : null;
+      const typeFilter = args.type === "page" ? "page" : args.type === "post" ? "post" : null;
+      const whereId = args.id !== undefined
+        ? "id = ?"
+        : args.slug
+          ? "slug = ?" + (typeFilter ? " AND type = '" + typeFilter + "'" : "")
+          : null;
       if (!whereId) return sseResponse(c, toolError(id, "Provide id or slug"));
-      const existing = await db.prepare("SELECT * FROM posts WHERE " + whereId).bind(args.id !== undefined ? Number(args.id) : String(args.slug)).first();
-      if (!existing) return sseResponse(c, toolError(id, "Post not found"));
+      const bindVal = args.id !== undefined ? Number(args.id) : String(args.slug);
+      const existing = await db.prepare("SELECT * FROM posts WHERE " + whereId).bind(bindVal).first();
+      if (!existing) return sseResponse(c, toolError(id, "Post/page not found"));
       const cur = existing as any;
       const title = args.title !== undefined ? String(args.title).trim() : cur.title;
       const content = args.content !== undefined ? sanitizePostHtml(String(args.content)) : cur.content;
@@ -323,19 +334,25 @@ async function handleToolCall(c: MCPCtx, id: unknown, name: string, args: Record
         .run();
       await c.env.CACHE.delete("cms:posts:pub");
       await c.env.CACHE.delete("cms:homepage");
-      const out = { id: cur.id, slug: cur.slug, title, published: published === 1 };
-      return sseResponse(c, toolResult(id, "Updated post #" + cur.id, out));
+      const out = { id: cur.id, slug: cur.slug, title, published: published === 1, type: cur.type };
+      return sseResponse(c, toolResult(id, "Updated " + cur.type + " #" + cur.id, out));
     }
 
     if (name === "publish_post") {
-      const whereId = args.id !== undefined ? "id = ?" : args.slug ? "slug = ? AND type = 'post'" : null;
+      const typeFilter = args.type === "page" ? "page" : args.type === "post" ? "post" : null;
+      const whereId = args.id !== undefined
+        ? "id = ?"
+        : args.slug
+          ? "slug = ?" + (typeFilter ? " AND type = '" + typeFilter + "'" : "")
+          : null;
       if (!whereId) return sseResponse(c, toolError(id, "Provide id or slug"));
       const publish = args.publish !== false;
+      const bindVal = args.id !== undefined ? Number(args.id) : String(args.slug);
       const result = await db
         .prepare("UPDATE posts SET published=?, publish_at=NULL, preview_token=NULL, updated_at=? WHERE " + whereId)
-        .bind(publish ? 1 : 0, new Date().toISOString(), args.id !== undefined ? Number(args.id) : String(args.slug))
+        .bind(publish ? 1 : 0, new Date().toISOString(), bindVal)
         .run();
-      if (result.meta.changes === 0) return sseResponse(c, toolError(id, "Post not found"));
+      if (result.meta.changes === 0) return sseResponse(c, toolError(id, "Post/page not found"));
       await c.env.CACHE.delete("cms:posts:pub");
       await c.env.CACHE.delete("cms:homepage");
       return sseResponse(c, toolResult(id, publish ? "Published" : "Unpublished"));
