@@ -90,9 +90,13 @@ export function shellFull(
     THEME_INIT_SCRIPT +
     '</head><body><a href="#main" class="sr-only">Skip to content</a><header><div class="inner"><a href="/" class="brand">' +
     (siteLogo
-      ? '<img src="' + esc(siteLogo) + '" alt="' + esc(siteName) + '" style="height:38px;width:auto;vertical-align:middle;max-width:260px"/>'
-      : '<span class="brand-name">' + esc(siteName) + '</span>') +
-    '</a><nav><form action="/search" method="get" class="search-wrap" role="search"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.4" y2="16.4"/></svg><input type="text" name="q" placeholder="Search" aria-label="Search site"></form>' +
+      ? '<img src="' +
+        esc(siteLogo) +
+        '" alt="' +
+        esc(siteName) +
+        '" style="height:38px;width:auto;vertical-align:middle;max-width:260px"/>'
+      : '<span class="brand-name">' + esc(siteName) + "</span>") +
+    '</a><input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Open menu" /><nav><form action="/search" method="get" class="search-wrap" role="search"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.4" y2="16.4"/></svg><input type="text" name="q" placeholder="Search" aria-label="Search site"></form>' +
     navHtml +
     // Toggle is a sibling of <nav>, not inside it: the mobile CSS hides
     // header nav (display:none under 768px) to save space, so a toggle
@@ -101,6 +105,7 @@ export function shellFull(
     // nav-center / toggle-right on desktop.
     "</nav>" +
     THEME_TOGGLE_BTN +
+    '<label class="nav-burger" for="nav-toggle" aria-hidden="true"></label>' +
     '</div></header><main id="main">' +
     bodyHtml +
     '</main><footer><div class="inner"><div class="wordmark" aria-hidden="true">' +
@@ -108,7 +113,7 @@ export function shellFull(
     '</div><p class="colophon">Published with <a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">PHCloud CMS</a> on Cloudflare · <a href="/feed.xml" rel="noopener">RSS</a> · <a href="/sitemap.xml" rel="noopener">Sitemap</a> · <a href="/llms.txt" rel="noopener">llms.txt</a> · <a href="/admin" rel="nofollow">Manage</a></p></div></footer>' +
     PROGRESS_SCRIPT +
     THEME_TOGGLE_SCRIPT +
-    '</body></html>'
+    "</body></html>"
   );
 }
 
@@ -116,7 +121,10 @@ export function shellFull(
 // Reading time from stored HTML; ~200 wpm, floored at 1 min. Cheap, useful,
 // and it only has to be approximately right.
 export function readingTime(content: string): number {
-  return Math.max(1, Math.round(htmlToText(content).split(/\s+/).filter(Boolean).length / 200));
+  return Math.max(
+    1,
+    Math.round(htmlToText(content).split(/\s+/).filter(Boolean).length / 200),
+  );
 }
 
 function formatDate(iso: string): string {
@@ -127,21 +135,25 @@ function formatDate(iso: string): string {
   });
 }
 
-export function renderPost(post: Post, tags?: { name: string; slug: string }[]): string {
-  const tagsHtml = tags && tags.length
-    ? '<span class="tags">' +
-      tags
-        .map(
-          (t) =>
-            '<a class="tag-pill" href="/tag/' +
-            esc(t.slug) +
-            '">' +
-            esc(t.name) +
-            "</a>",
-        )
-        .join("") +
-      "</span>"
-    : "";
+export function renderPost(
+  post: Post,
+  tags?: { name: string; slug: string }[],
+): string {
+  const tagsHtml =
+    tags && tags.length
+      ? '<span class="tags">' +
+        tags
+          .map(
+            (t) =>
+              '<a class="tag-pill" href="/tag/' +
+              esc(t.slug) +
+              '">' +
+              esc(t.name) +
+              "</a>",
+          )
+          .join("") +
+        "</span>"
+      : "";
   return (
     '<article class="post"><nav class="back-link"><a href="/">Index</a></nav><h1 class="post-title">' +
     esc(post.title) +
@@ -149,9 +161,9 @@ export function renderPost(post: Post, tags?: { name: string; slug: string }[]):
     esc(post.updated_at) +
     '">' +
     formatDate(post.updated_at) +
-    "</time><span aria-hidden=\"true\">·</span><span>" +
+    '</time><span aria-hidden="true">·</span><span>' +
     readingTime(post.content) +
-    ' min read</span>' +
+    " min read</span>" +
     tagsHtml +
     '</div><div class="post-content">' +
     sanitizePostHtml(post.content) +
@@ -176,9 +188,9 @@ export function renderHomepage(
   return (
     '<section class="hero">' +
     kickerHtml +
-    '<h1>' +
+    "<h1>" +
     esc(siteName) +
-    "</h1><p class=\"lede\">" +
+    '</h1><p class="lede">' +
     esc(description || "A PHCloud site — fast, free, and built to read.") +
     "</p>" +
     meta +
@@ -209,10 +221,12 @@ export function renderPostList(
     esc(first.updated_at) +
     '">' +
     formatDate(first.updated_at) +
-    "</time></div><h2 class=\"f-title\">" +
+    '</time></div><h2 class="f-title">' +
     esc(first.title) +
-    '</h2>' +
-    (first.excerpt ? '<p class="f-excerpt">' + esc(first.excerpt) + "</p>" : "") +
+    "</h2>" +
+    (first.excerpt
+      ? '<p class="f-excerpt">' + esc(first.excerpt) + "</p>"
+      : "") +
     '<span class="f-link">Read</span></a>';
   if (rest.length) {
     html += '<div class="post-list">';
@@ -226,7 +240,9 @@ export function renderPostList(
         '</span><span class="row-body"><span class="row-title">' +
         esc(p.title) +
         "</span>" +
-        (p.excerpt ? '<span class="row-excerpt">' + esc(p.excerpt) + "</span>" : "") +
+        (p.excerpt
+          ? '<span class="row-excerpt">' + esc(p.excerpt) + "</span>"
+          : "") +
         '</span><time class="row-date" datetime="' +
         esc(p.updated_at) +
         '">' +
