@@ -13,6 +13,7 @@ import { App, SLUG_RE, parseJsonBody } from "../cms/env.js";
 import { getSetting } from "../cms/d1.js";
 import { sanitizePostHtml } from "../cms/sanitize.js";
 import { autoExcerpt } from "../cms/render.js";
+import { NavItem } from "../cms/render.js";
 import { getStats } from "../cms/stats.js";
 import type { Context } from "hono";
 
@@ -146,6 +147,34 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: { days: { type: "integer", description: "Lookback window (1-90, default 30)" } },
+    },
+  },
+  {
+    name: "get_nav",
+    title: "Get navigation",
+    description: "Get the current navigation menu items.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "update_nav",
+    title: "Update navigation",
+    description: "Replace the entire navigation menu with new items.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string", description: "Link label" },
+              url: { type: "string", description: "Link URL (e.g. /about, /privacy)" },
+            },
+            required: ["label", "url"],
+          },
+        },
+      },
+      required: ["items"],
     },
   },
 ];
@@ -369,6 +398,24 @@ async function handleToolCall(c: MCPCtx, id: unknown, name: string, args: Record
       const days = Math.min(90, Math.max(1, Number(args.days) || 30));
       const stats = await getStats(db, days);
       return sseResponse(c, toolResult(id, JSON.stringify(stats, null, 2), stats));
+    }
+
+    if (name === "get_nav") {
+      const navVal = await getSetting(db, "nav");
+      let nav: NavItem[] = [];
+      try { const p = navVal ? JSON.parse(navVal) : []; nav = Array.isArray(p) ? p : []; } catch {}
+      return sseResponse(c, toolResult(id, JSON.stringify(nav, null, 2), nav));
+    }
+
+    if (name === "update_nav") {
+      const items = (args.items as Array<{ label: string; url: string }>) ?? [];
+      await db
+        .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('nav', ?)")
+        .bind(JSON.stringify(items))
+        .run();
+      await c.env.CACHE.delete("cms:nav");
+      await c.env.CACHE.delete("cms:settings");
+      return sseResponse(c, toolResult(id, "Navigation updated (" + items.length + " items)", items));
     }
 
     return sseResponse(c, toolError(id, "Unknown tool"));
