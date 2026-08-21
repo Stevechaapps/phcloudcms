@@ -1,15 +1,13 @@
-// src/routes/mcp.ts — Model Context Protocol server, POST /api/mcp.
-// Implements the MCP spec revision 2026-07-28 (Streamable HTTP transport):
-//   - modern per-request metadata: no initialize handshake, no sessions
-//   - required headers: MCP-Protocol-Version, Mcp-Method, Mcp-Name
-//   - HeaderMismatch (-32020) and UnsupportedProtocolVersionError (-32022)
-//   - server/discover (MUST), tools/list, tools/call
-//   - results carry resultType + ttlMs + cacheScope; tool errors are isError
-//     inside the result, never protocol-level errors
-// Auth: Bearer token configured in Settings → MCP Access. Unset token = endpoint
-// disabled. Origin checked against the Host to stop DNS-rebinding attacks.
-// Doc-verified against modelcontextprotocol.io 2026-07-28 (transport, versioning,
-// discover, tools) before writing.
+// src/routes/mcp.ts — Model Context Protocol server (Streamable HTTP transport).
+// Implements MCP spec revision 2025-06-18 Streamable HTTP:
+//   - POST with JSON-RPC message; server responds with text/event-stream
+//     containing "event: message\ndata: {json}\n\n" OR application/json
+//   - GET returns 405 (we don't offer server-initiated SSE streams)
+//   - 404 on POST means "session expired, re-initialize" (per spec §Session Mgmt)
+//   - Unknown method returns JSON-RPC error with HTTP 200 (NOT 404)
+//     to avoid triggering spurious session recovery in clients
+//   - Auth: Bearer token in Settings → MCP Access
+// Origin checked against Host to stop DNS-rebinding attacks.
 
 import { App, SLUG_RE, parseJsonBody } from "../cms/env.js";
 import { getSetting } from "../cms/d1.js";
@@ -18,7 +16,7 @@ import { autoExcerpt } from "../cms/render.js";
 import { getStats } from "../cms/stats.js";
 import type { Context } from "hono";
 
-const PROTOCOL_VERSION = "2026-07-28";
+const PROTOCOL_VERSION = "2025-06-18";
 const SERVER_INFO = { name: "phcloud-cms", version: "1.1.0" };
 const TTL_MS = 300000;
 
@@ -26,12 +24,6 @@ type MCPCtx = Context<{ Bindings: import("../cms/env.js").Env; Variables: import
 
 const rpcError = (id: unknown, code: number, message: string, data?: unknown) =>
   ({ jsonrpc: "2.0", id: id ?? null, error: { code, message, ...(data !== undefined ? { data } : {}) } });
-
-const headerMismatch = (id: unknown, what: string) =>
-  rpcError(id, -32020, "Header mismatch: " + what);
-
-const unsupportedVersion = (id: unknown, requested: string) =>
-  rpcError(id, -32022, "Unsupported protocol version", { supported: [PROTOCOL_VERSION], requested });
 
 // tools/call result with a human-readable text block + structured data
 const toolResult = (id: unknown, text: string, structured?: unknown) => ({
@@ -49,6 +41,21 @@ const toolError = (id: unknown, text: string) => ({
   id,
   result: { resultType: "complete", content: [{ type: "text", text }], isError: true },
 });
+
+// Wrap a single JSON-RPC response as an SSE-formatted text/event-stream body,
+// matching the format used by real-world MCP servers (e.g. mcp.docs.astro.build).
+// opencode's Streamable HTTP client expects SSE-formatted POST responses.
+const sseResponse = (c: MCPCtx, payload: unknown) => {
+  const body = "event: message\ndata: " + JSON.stringify(payload) + "\n\n";
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+};
 
 // ── Tools (deterministic order for client-side caching) ────────────
 const TOOLS = [
@@ -142,54 +149,32 @@ const TOOLS = [
 
 export function registerMcpRoute(app: App): void {
   const mcpHandler = async (c: MCPCtx) => {
-    // ── GET → legacy SSE endpoint discovery (opencode compat) ──────
+    // GET → 405 per Streamable HTTP spec §Listening for Messages:
+    // "The server MUST either return Content-Type: text/event-stream in response
+    // to this HTTP GET, or else return HTTP 405 Method Not Allowed."
+    // We don't offer server-initiated SSE streams, so we 405.
     if (c.req.method === "GET") {
-      const token = await getSetting(c.env.DB, "mcp_token");
-      if (!token) return c.json(rpcError(null, -32001, "MCP access token is not configured on this site"), 401);
-      const auth = c.req.header("authorization") ?? "";
-      if (auth !== "Bearer " + token) return c.json(rpcError(null, -32001, "Unauthorized"), 401);
-
-      const sessionId = crypto.randomUUID();
-      const endpoint = new URL(c.req.url);
-      endpoint.searchParams.set("session_id", sessionId);
-      
-      await c.env.CACHE.put("mcpsession:" + sessionId, "active", { expirationTtl: 3600 });
-
-      const body = new ReadableStream({
-        start(controller) {
-          const enc = new TextEncoder();
-          const bareUrl = new URL(c.req.url);
-          bareUrl.searchParams.delete("session_id");
-          controller.enqueue(enc.encode("event: endpoint\ndata: {\"url\":\"" + bareUrl.toString() + "\"}\n\n"));
-          controller.enqueue(enc.encode("data: " + bareUrl.toString() + "\n\n"));
-          let interval: ReturnType<typeof setInterval> | null = null;
-          const cleanup = () => { if (interval) clearInterval(interval); c.env.CACHE.delete("mcpsession:" + sessionId); };
-          interval = setInterval(() => { try { controller.enqueue(enc.encode(": keep-alive\n\n")); } catch { cleanup(); } }, 15000);
-        },
-        pull() { },
-        cancel() { c.env.CACHE.delete("mcpsession:" + sessionId); },
-      });
-
-      return new Response(body, {
-        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
-      });
+      return c.json(rpcError(null, -32601, "Method not allowed: GET not supported, use POST"), 405);
     }
 
-    if (c.req.method !== "POST") return c.json(rpcError(null, -32601, "Method not found"), 405);
-
-    // Optional session validation: opencode might send session_id or session.
-    const sessionId = c.req.query("session_id") ?? c.req.query("session") ?? "";
-    if (sessionId) {
-      const session = await c.env.CACHE.get("mcpsession:" + sessionId);
-      if (!session) return c.json(rpcError(null, -32001, "Invalid or expired session"), 404);
+    if (c.req.method === "DELETE") {
+      // Per spec §Session Management: clients MAY DELETE to terminate sessions.
+      // We don't track server-side session state beyond the cache, so 202 is fine.
+      return c.body(null, 202);
     }
 
-    // DNS-rebinding protection: if Origin is present it must be same-origin.
+    if (c.req.method !== "POST") {
+      return c.json(rpcError(null, -32601, "Method not allowed"), 405);
+    }
+
+    // DNS-rebinding protection per spec §Security Warning.
     const origin = c.req.header("origin");
     if (origin) {
       const host = c.req.header("host") ?? "";
       const allowed = "https://" + host + (origin.startsWith("http://") ? "" : "");
-      if (origin !== allowed && origin !== "http://" + host) return c.json(rpcError(null, -32600, "Invalid Origin"), 403);
+      if (origin !== allowed && origin !== "http://" + host) {
+        return c.json(rpcError(null, -32600, "Invalid Origin"), 403);
+      }
     }
 
     // Gate: Bearer auth against the configured MCP token. No token = endpoint off.
@@ -203,71 +188,45 @@ export function registerMcpRoute(app: App): void {
     const method = String(body.method ?? "");
     const id = body.id ?? null;
 
+    // Per spec §Sending Messages: notifications/responses (no id) → 202 no body.
     if (id === null || id === undefined) return c.body(null, 202);
 
-    const protoHeader = c.req.header("mcp-protocol-version");
-    const meta = (body._meta as Record<string, unknown>) ?? {};
-    const bodyVersion = String(meta["io.modelcontextprotocol/protocolVersion"] ?? "");
-    if (protoHeader && bodyVersion && protoHeader !== bodyVersion) {
-      return c.json(headerMismatch(id, "MCP-Protocol-Version header does not match body _meta"), 400);
-    }
-    if (protoHeader && protoHeader !== PROTOCOL_VERSION) {
-      return c.json(unsupportedVersion(id, protoHeader), 400);
-    }
-    const mcpMethodHeader = c.req.header("mcp-method");
-    if (mcpMethodHeader && mcpMethodHeader !== method) {
-      return c.json(headerMismatch(id, "Mcp-Method header does not match body method"), 400);
-    }
-    if (method === "tools/call") {
-      const name = String((body.params as Record<string, unknown>)?.name ?? "");
-      const mcpNameHeader = c.req.header("mcp-name");
-      if (mcpNameHeader && mcpNameHeader !== name) {
-        return c.json(headerMismatch(id, "Mcp-Name header does not match body tool name"), 400);
-      }
-    }
+    // ── Method dispatch ──
+    // Per spec §Session Management, a 404 means "session expired, re-initialize."
+    // We must NOT return 404 for anything other than session expiry, because
+    // clients (e.g. opencode) interpret any 404 as "start a new session" and
+    // then loop forever on the same method. Unknown methods return JSON-RPC
+    // error -32601 with HTTP 200.
 
     if (method === "initialize") {
-      const sessionId = crypto.randomUUID();
-      await c.env.CACHE.put("mcpsession:" + sessionId, "active", { expirationTtl: 3600 });
-      const res = c.json({
+      // Per spec: server MAY assign a session id by including Mcp-Session-Id
+      // header on the init response. We don't enforce sessions, so we omit it
+      // and stateless operation continues. Some clients (opencode #38891) drop
+      // the header anyway; stateless is safe.
+      return sseResponse(c, {
         jsonrpc: "2.0",
         id,
         result: {
           protocolVersion: PROTOCOL_VERSION,
-          capabilities: { tools: {} },
-          server: SERVER_INFO,
+          capabilities: { tools: { listChanged: false }, logging: {} },
+          serverInfo: SERVER_INFO,
         },
       });
-      res.headers.set("mcp-session-id", sessionId);
-      return res;
     }
 
-    if (method === "initialized") {
+    if (method === "initialized" || method === "notifications/initialized") {
       return c.body(null, 202);
     }
 
-    if (method === "server/discover") {
-      return c.json({
-        jsonrpc: "2.0",
-        id,
-        result: {
-          resultType: "complete",
-          supportedVersions: [PROTOCOL_VERSION],
-          capabilities: { tools: {} },
-          _meta: { "io.modelcontextprotocol/serverInfo": SERVER_INFO },
-          instructions:
-            "PHCloud CMS content tools: read, create, update, and publish blog posts and tags. Content fields are sanitized HTML; excerpts are plain text. Identify posts by id or slug.",
-          ttlMs: 3600000,
-          cacheScope: "public",
-        },
-      });
+    if (method === "ping") {
+      return sseResponse(c, { jsonrpc: "2.0", id, result: {} });
     }
 
     if (method === "tools/list") {
-      return c.json({
+      return sseResponse(c, {
         jsonrpc: "2.0",
         id,
-        result: { resultType: "complete", tools: TOOLS, ttlMs: TTL_MS, cacheScope: "private" },
+        result: { tools: TOOLS },
       });
     }
 
@@ -275,16 +234,17 @@ export function registerMcpRoute(app: App): void {
       const name = String((body.params as Record<string, unknown>)?.name ?? "");
       const args = ((body.params as Record<string, unknown>)?.arguments ?? {}) as Record<string, unknown>;
       const tool = TOOLS.find((t) => t.name === name);
-      if (!tool) return c.json(rpcError(id, -32602, "Unknown tool: " + name), 404);
+      if (!tool) return sseResponse(c, rpcError(id, -32602, "Unknown tool: " + name));
       return handleToolCall(c, id, name, args);
     }
 
-    return c.json(rpcError(id, -32601, "Method not found"), 404);
+    // Unknown method: JSON-RPC error with HTTP 200 — NOT 404, because 404
+    // has special meaning (session expired) in the Streamable HTTP spec.
+    return sseResponse(c, rpcError(id, -32601, "Method not found: " + method));
   };
 
-  app.get("/api/mcp", mcpHandler);
-  app.get("/api/mcp/", mcpHandler);
   app.post("/api/mcp", mcpHandler);
+  // Trailing-slash variant in case any client normalizes paths that way.
   app.post("/api/mcp/", mcpHandler);
 }
 
@@ -300,7 +260,7 @@ async function handleToolCall(c: MCPCtx, id: unknown, name: string, args: Record
         .prepare("SELECT id, title, slug, published, excerpt, updated_at FROM posts " + where + " ORDER BY updated_at DESC LIMIT ?")
         .bind(limit)
         .all();
-      return c.json(toolResult(id, JSON.stringify(rows.results, null, 2), rows.results));
+      return sseResponse(c, toolResult(id, JSON.stringify(rows.results, null, 2), rows.results));
     }
 
     if (name === "get_post") {
@@ -309,21 +269,21 @@ async function handleToolCall(c: MCPCtx, id: unknown, name: string, args: Record
         : args.slug
           ? await db.prepare("SELECT * FROM posts WHERE slug = ? AND type = 'post'").bind(String(args.slug)).first()
           : null;
-      if (!post) return c.json(toolError(id, "Post not found"));
+      if (!post) return sseResponse(c, toolError(id, "Post not found"));
       const tags = await db
         .prepare("SELECT t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = ?")
         .bind((post as any).id)
         .all<{ name: string }>();
       const out = { ...(post as object), tags: tags.results.map((t) => t.name) };
-      return c.json(toolResult(id, JSON.stringify(out, null, 2), out));
+      return sseResponse(c, toolResult(id, JSON.stringify(out, null, 2), out));
     }
 
     if (name === "create_post") {
       const title = String(args.title ?? "").trim();
-      if (!title) return c.json(toolError(id, "title is required"));
+      if (!title) return sseResponse(c, toolError(id, "title is required"));
       let slug = String(args.slug ?? "").trim();
       if (!slug) slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      if (!SLUG_RE.test(slug)) return c.json(toolError(id, "Invalid slug — use lowercase letters, numbers, and hyphens"));
+      if (!SLUG_RE.test(slug)) return sseResponse(c, toolError(id, "Invalid slug — use lowercase letters, numbers, and hyphens"));
       const content = sanitizePostHtml(String(args.content ?? ""));
       let excerpt = String(args.excerpt ?? autoExcerpt(content)).slice(0, 255);
       if (!excerpt.trim()) excerpt = autoExcerpt(content);
@@ -337,18 +297,18 @@ async function handleToolCall(c: MCPCtx, id: unknown, name: string, args: Record
         await c.env.CACHE.delete("cms:posts:pub");
         await c.env.CACHE.delete("cms:homepage");
         const out = { id: result.meta.last_row_id, slug, published: published === 1 };
-        return c.json(toolResult(id, "Created post #" + out.id + " at /" + slug, out));
+        return sseResponse(c, toolResult(id, "Created post #" + out.id + " at /" + slug, out));
       } catch (e: any) {
-        if (String(e?.message ?? "").includes("UNIQUE")) return c.json(toolError(id, "A post with this slug already exists"));
+        if (String(e?.message ?? "").includes("UNIQUE")) return sseResponse(c, toolError(id, "A post with this slug already exists"));
         throw e;
       }
     }
 
     if (name === "update_post") {
       const whereId = args.id !== undefined ? "id = ?" : args.slug ? "slug = ? AND type = 'post'" : null;
-      if (!whereId) return c.json(toolError(id, "Provide id or slug"));
+      if (!whereId) return sseResponse(c, toolError(id, "Provide id or slug"));
       const existing = await db.prepare("SELECT * FROM posts WHERE " + whereId).bind(args.id !== undefined ? Number(args.id) : String(args.slug)).first();
-      if (!existing) return c.json(toolError(id, "Post not found"));
+      if (!existing) return sseResponse(c, toolError(id, "Post not found"));
       const cur = existing as any;
       const title = args.title !== undefined ? String(args.title).trim() : cur.title;
       const content = args.content !== undefined ? sanitizePostHtml(String(args.content)) : cur.content;
@@ -364,39 +324,39 @@ async function handleToolCall(c: MCPCtx, id: unknown, name: string, args: Record
       await c.env.CACHE.delete("cms:posts:pub");
       await c.env.CACHE.delete("cms:homepage");
       const out = { id: cur.id, slug: cur.slug, title, published: published === 1 };
-      return c.json(toolResult(id, "Updated post #" + cur.id, out));
+      return sseResponse(c, toolResult(id, "Updated post #" + cur.id, out));
     }
 
     if (name === "publish_post") {
       const whereId = args.id !== undefined ? "id = ?" : args.slug ? "slug = ? AND type = 'post'" : null;
-      if (!whereId) return c.json(toolError(id, "Provide id or slug"));
+      if (!whereId) return sseResponse(c, toolError(id, "Provide id or slug"));
       const publish = args.publish !== false;
       const result = await db
         .prepare("UPDATE posts SET published=?, publish_at=NULL, preview_token=NULL, updated_at=? WHERE " + whereId)
         .bind(publish ? 1 : 0, new Date().toISOString(), args.id !== undefined ? Number(args.id) : String(args.slug))
         .run();
-      if (result.meta.changes === 0) return c.json(toolError(id, "Post not found"));
+      if (result.meta.changes === 0) return sseResponse(c, toolError(id, "Post not found"));
       await c.env.CACHE.delete("cms:posts:pub");
       await c.env.CACHE.delete("cms:homepage");
-      return c.json(toolResult(id, publish ? "Published" : "Unpublished"));
+      return sseResponse(c, toolResult(id, publish ? "Published" : "Unpublished"));
     }
 
     if (name === "list_tags") {
       const rows = await db
         .prepare("SELECT t.id, t.name, t.slug, (SELECT COUNT(*) FROM post_tags pt WHERE pt.tag_id = t.id) AS post_count FROM tags t ORDER BY t.name")
         .all();
-      return c.json(toolResult(id, JSON.stringify(rows.results, null, 2), rows.results));
+      return sseResponse(c, toolResult(id, JSON.stringify(rows.results, null, 2), rows.results));
     }
 
     if (name === "site_stats") {
       const days = Math.min(90, Math.max(1, Number(args.days) || 30));
       const stats = await getStats(db, days);
-      return c.json(toolResult(id, JSON.stringify(stats, null, 2), stats));
+      return sseResponse(c, toolResult(id, JSON.stringify(stats, null, 2), stats));
     }
 
-    return c.json(toolError(id, "Unknown tool"));
+    return sseResponse(c, toolError(id, "Unknown tool"));
   } catch (e) {
     console.error("MCP tool call failed:", e);
-    return c.json(toolError(id, "Internal error: " + (e instanceof Error ? e.message : "unknown")));
+    return sseResponse(c, toolError(id, "Internal error: " + (e instanceof Error ? e.message : "unknown")));
   }
 }
