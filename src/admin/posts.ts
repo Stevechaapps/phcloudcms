@@ -32,9 +32,10 @@ tbody.innerHTML=data.results.map(function(p){return '<tr>'
 +'<td><span class="cell-muted">/'+ea(p.slug)+'</span></td>'
 +'<td><span class="badge '+(p.published?'badge-pub':'badge-draft')+'"><span class="dot"></span>'+(p.published?'Published':'Draft')+'</span></td>'
 +'<td class="cell-dim">'+new Date(p.updated_at).toLocaleDateString()+'</td>'
-+'<td><div class="row-actions"><a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a><button class="btn btn-sm btn-danger" onclick="del('+p.id+')">Delete</button></div></td>'
++'<td><div class="row-actions"><a class="btn btn-sm" href="/admin/edit/'+p.id+'">Edit</a><button class="btn btn-sm btn-danger" data-id="'+p.id+'">Delete</button></div></td>'
 +'</tr>'}).join('');renderAdminPage(data.page,data.totalPages)}).catch(function(e){console.error('loadPosts failed',e);document.getElementById('posts').innerHTML='<tr><td colspan="5" class="empty">Failed to load posts.</td></tr>';})
 function del(id){if(!confirm('Delete this post? This cannot be undone.'))return;fetch('/api/admin/posts/'+id,{method:'DELETE',credentials:'include'}).then(function(r){if(!r.ok)throw new Error('fail');location.reload()}).catch(function(){toast('Delete failed','err')})}
+document.getElementById('posts').addEventListener('click',function(e){var b=e.target.closest('.btn-danger');if(!b||!b.dataset.id)return;del(Number(b.dataset.id))});
 }
 loadPosts();</script>`;
 }
