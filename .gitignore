@@ -34,3 +34,6 @@ coverage/
 _ux-check.ts
 _ux-check-bundle.mjs
 _ux-editor-snippet.mjs
+
+# One-off local DB repair (pre-/install databases only); not needed for fresh installs
+backfill.sql
