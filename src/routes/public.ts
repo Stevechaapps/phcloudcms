@@ -384,7 +384,13 @@ export function registerPublicRoutes(app: App): void {
       },
     });
     return c.html(
-      shellFull(siteName, headPayload.markup as string, bodyHtml, [], siteLogo),
+      shellFull(
+        siteName,
+        headPayload.markup as string,
+        bodyHtml,
+        nav,
+        siteLogo,
+      ),
     );
   });
 

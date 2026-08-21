@@ -55,6 +55,10 @@ export const THEME_TOGGLE_SCRIPT = `<script>(function(){var d=document.documentE
 // rAF-throttled; a no-op on pages too short to scroll.
 export const PROGRESS_SCRIPT = `<script>(function(){var b=document.createElement('div');b.id='read-progress';document.body.appendChild(b);var h=document.documentElement;function up(){var max=h.scrollHeight-h.clientHeight;if(max<=0){b.style.width='0';return}b.style.width=((h.scrollTop||document.body.scrollTop)/max*100).toFixed(2)+'%'}var t=null;addEventListener('scroll',function(){if(t)return;t=requestAnimationFrame(function(){t=null;up()})},{passive:true});addEventListener('resize',up,{passive:true});up()})();</script>`;
 
+// Mobile nav toggle: syncs aria-expanded/label with the checkbox state and
+// lets Escape close the drawer. The open/close itself stays pure CSS.
+export const NAV_TOGGLE_SCRIPT = `<script>(function(){var t=document.getElementById('nav-toggle');if(!t)return;function s(){t.setAttribute('aria-expanded',t.checked?'true':'false');t.setAttribute('aria-label',t.checked?'Close menu':'Open menu')}t.addEventListener('change',s);document.addEventListener('keydown',function(e){if(e.key==='Escape'&&t.checked){t.checked=false;s()}});s()})();</script>`;
+
 export function shellFull(
   siteName: string,
   headMarkup: string,
@@ -96,7 +100,7 @@ export function shellFull(
         esc(siteName) +
         '" style="height:38px;width:auto;vertical-align:middle;max-width:260px"/>'
       : '<span class="brand-name">' + esc(siteName) + "</span>") +
-    '</a><input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Open menu" /><nav><form action="/search" method="get" class="search-wrap" role="search"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.4" y2="16.4"/></svg><input type="text" name="q" placeholder="Search" aria-label="Search site"></form>' +
+    '</a><input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Open menu" aria-expanded="false" /><nav><form action="/search" method="get" class="search-wrap" role="search"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.4" y2="16.4"/></svg><input type="text" name="q" placeholder="Search" aria-label="Search site"></form>' +
     navHtml +
     // Toggle is a sibling of <nav>, not inside it: the mobile CSS hides
     // header nav (display:none under 768px) to save space, so a toggle
@@ -113,6 +117,7 @@ export function shellFull(
     '</div><p class="colophon">Published with <a href="https://github.com/Stevechaapps/phcloudcms" target="_blank" rel="noopener">PHCloud CMS</a> on Cloudflare · <a href="/feed.xml" rel="noopener">RSS</a> · <a href="/sitemap.xml" rel="noopener">Sitemap</a> · <a href="/llms.txt" rel="noopener">llms.txt</a> · <a href="/admin" rel="nofollow">Manage</a></p></div></footer>' +
     PROGRESS_SCRIPT +
     THEME_TOGGLE_SCRIPT +
+    NAV_TOGGLE_SCRIPT +
     "</body></html>"
   );
 }

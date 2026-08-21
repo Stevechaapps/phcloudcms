@@ -498,16 +498,18 @@ async function handleToolCall(
             const p = navVal ? JSON.parse(navVal) : [];
             nav = Array.isArray(p) ? p : [];
           } catch {}
-          nav.push({ label: title, url: "/" + slug });
-          await db
-            .prepare(
-              "INSERT OR REPLACE INTO settings (key, value) VALUES ('nav', ?)",
-            )
-            .bind(JSON.stringify(nav))
-            .run();
-          await c.env.CACHE.delete("cms:nav");
-          await c.env.CACHE.delete("cms:settings");
-          msg += " and added to navigation";
+          if (!nav.some((n) => n.url === "/" + slug)) {
+            nav.push({ label: title, url: "/" + slug });
+            await db
+              .prepare(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('nav', ?)",
+              )
+              .bind(JSON.stringify(nav))
+              .run();
+            await c.env.CACHE.delete("cms:nav");
+            await c.env.CACHE.delete("cms:settings");
+            msg += " and added to navigation";
+          }
         }
         return sseResponse(c, toolResult(id, msg, out));
       } catch (e: any) {
