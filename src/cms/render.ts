@@ -163,14 +163,20 @@ export function renderHomepage(
   siteName: string,
   description: string,
   postCount: number,
+  heroKicker: string = "",
 ): string {
+  const kickerHtml = heroKicker
+    ? '<div class="kicker">' + esc(heroKicker) + "</div>"
+    : "";
   const meta =
     '<div class="meta-row"><span>' +
     postCount +
     (postCount === 1 ? " post</span>" : " posts</span>") +
     '<span class="dot" aria-hidden="true">·</span><a href="/feed.xml">RSS</a><span class="dot" aria-hidden="true">·</span><a href="/sitemap.xml">Sitemap</a></div>';
   return (
-    '<section class="hero"><div class="kicker">Edge-published on Cloudflare</div><h1>' +
+    '<section class="hero">' +
+    kickerHtml +
+    '<h1>' +
     esc(siteName) +
     "</h1><p class=\"lede\">" +
     esc(description || "A PHCloud site — fast, free, and built to read.") +

@@ -18,6 +18,7 @@ export function registerSettingsRoutes(app: App): void {
       site_logo: settings.site_logo ?? null,
       ai_guidelines: settings.ai_guidelines ?? "",
       mcp_token: settings.mcp_token ?? "",
+      hero_kicker: settings.hero_kicker ?? "",
     });
   });
 
@@ -64,6 +65,11 @@ export function registerSettingsRoutes(app: App): void {
       await db
         .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('mcp_token', ?)")
         .bind(String(body.mcp_token ?? ""))
+        .run();
+    if (body.hero_kicker !== undefined)
+      await db
+        .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('hero_kicker', ?)")
+        .bind(String(body.hero_kicker ?? ""))
         .run();
     await c.env.CACHE.delete("cms:settings");
     return c.json({ ok: true });
