@@ -41,17 +41,25 @@ if(k==='t'){toggleAdminTheme();e.preventDefault();return}});
 document.getElementById('palette-list').addEventListener('click',function(e){var b=e.target.closest?e.target.closest('.palette-item'):null;if(b&&b.getAttribute('data-action')){paletteAction(b.getAttribute('data-action'))}});`;
 
 // ── Nav ─────────────────────────────────────────────────────────────
-type NavItem = { href: string; label: string; icon: keyof typeof I; kbd?: string };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: keyof typeof I;
+  kbd?: string;
+};
 
 const I = {
   dash: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
-  posts: '<path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h6"/>',
-  pages: '<path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5"/>',
+  posts:
+    '<path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h6"/>',
+  pages:
+    '<path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v5h5"/>',
   new: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/>',
   img: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
   tag: '<path d="M3 11V5a2 2 0 0 1 2-2h6l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1"/>',
   nav: '<path d="M4 7h16M4 12h16M4 17h10"/>',
-  settings: '<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/>',
+  settings:
+    '<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/>',
   ext: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
@@ -61,11 +69,17 @@ const I = {
 };
 
 function icon(name: keyof typeof I, cls = ""): string {
-  return '<svg class="ic ' + cls + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (I[name] ?? "") + "</svg>";
+  return (
+    '<svg class="ic ' +
+    cls +
+    '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    (I[name] ?? "") +
+    "</svg>"
+  );
 }
 
 const NAV: NavItem[] = [
-  { href: "/admin", label: "Dashboard", icon: "dash", kbd: "g d" },
+  { href: "/admin", label: "Dashboard", icon: "dash" },
   { href: "/admin/posts", label: "All Posts", icon: "posts" },
   { href: "/admin/pages", label: "Pages", icon: "pages" },
   { href: "/admin/new", label: "New Post", icon: "new" },
@@ -77,7 +91,13 @@ const NAV: NavItem[] = [
 ];
 
 function paletteItems(): string {
-  const items: { href?: string; action?: string; label: string; icon: string; kbd: string }[] = NAV.map((n) => ({
+  const items: {
+    href?: string;
+    action?: string;
+    label: string;
+    icon: string;
+    kbd: string;
+  }[] = NAV.map((n) => ({
     href: n.href,
     label: n.label,
     icon: icon(n.icon, "ic-sm"),
@@ -85,8 +105,18 @@ function paletteItems(): string {
   }));
   items.push(
     { href: "/", label: "View Site", icon: icon("ext", "ic-sm"), kbd: "g g" },
-    { action: "theme", label: "Toggle color theme", icon: icon("sun", "ic-sm"), kbd: "t" },
-    { action: "help", label: "Keyboard shortcuts", icon: icon("bolt", "ic-sm"), kbd: "?" },
+    {
+      action: "theme",
+      label: "Toggle color theme",
+      icon: icon("sun", "ic-sm"),
+      kbd: "t",
+    },
+    {
+      action: "help",
+      label: "Keyboard shortcuts",
+      icon: icon("bolt", "ic-sm"),
+      kbd: "?",
+    },
     { action: "logout", label: "Log out", icon: icon("out", "ic-sm"), kbd: "" },
   );
   return JSON.stringify(items);

@@ -120,7 +120,15 @@ export function registerPublicRoutes(app: App): void {
       out += "# Posts\n\n";
       for (const p of posts.results) {
         out +=
-          "- [" + p.title + "](" + origin + "/" + p.slug + "): " + (p.excerpt || p.title) + "\n";
+          "- [" +
+          p.title +
+          "](" +
+          origin +
+          "/" +
+          p.slug +
+          "): " +
+          (p.excerpt || p.title) +
+          "\n";
       }
       out += "\n";
     }
@@ -128,7 +136,15 @@ export function registerPublicRoutes(app: App): void {
       out += "# Pages\n\n";
       for (const p of pages.results) {
         out +=
-          "- [" + p.title + "](" + origin + "/" + p.slug + "): " + (p.excerpt || p.title) + "\n";
+          "- [" +
+          p.title +
+          "](" +
+          origin +
+          "/" +
+          p.slug +
+          "): " +
+          (p.excerpt || p.title) +
+          "\n";
       }
       out += "\n";
     }
@@ -263,7 +279,13 @@ export function registerPublicRoutes(app: App): void {
       },
     });
     return c.html(
-      shellFull(siteName, headPayload.markup as string, bodyHtml, nav, siteLogo),
+      shellFull(
+        siteName,
+        headPayload.markup as string,
+        bodyHtml,
+        nav,
+        siteLogo,
+      ),
     );
   });
 
@@ -300,7 +322,13 @@ export function registerPublicRoutes(app: App): void {
       .first<{ id: number; name: string }>();
     if (!tag)
       return c.html(
-        shellFull(siteName, "", '<h1>Tag not found</h1><p><a href="/">Go home</a></p>', nav, siteLogo),
+        shellFull(
+          siteName,
+          "",
+          '<h1>Tag not found</h1><p><a href="/">Go home</a></p>',
+          nav,
+          siteLogo,
+        ),
         404,
       );
 
@@ -442,7 +470,13 @@ export function registerPublicRoutes(app: App): void {
       }
       if (!post)
         return c.html(
-          shellFull(siteName, "", '<h1>404 — Not found</h1><p><a href="/">Go home</a></p>', nav, siteLogo),
+          shellFull(
+            siteName,
+            "",
+            '<h1>404 — Not found</h1><p><a href="/">Go home</a></p>',
+            nav,
+            siteLogo,
+          ),
           404,
         );
 
@@ -454,18 +488,12 @@ export function registerPublicRoutes(app: App): void {
 
       let bodyHtml: string;
       if (post.type === "page") {
+        // Pages are standalone documents — no post chrome (no back link, no
+        // date/read-time meta) so they don't render like blog posts.
         bodyHtml =
-          '<article class="post"><nav class="back-link"><a href="/">Index</a></nav><h1 class="post-title">' +
+          '<article class="post"><h1 class="post-title">' +
           esc(post.title) +
-          '</h1><div class="post-meta"><time datetime="' +
-          esc(post.updated_at) +
-          '">' +
-          new Date(post.updated_at).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          }) +
-          "</time></div><div class=\"post-content\">" +
+          '</h1><div class="post-content">' +
           sanitizePostHtml(post.content) +
           "</div></article>";
       } else {
@@ -518,7 +546,13 @@ export function registerPublicRoutes(app: App): void {
       });
       bodyHtml = (bodyPayload.bodyHtml as string) ?? bodyHtml;
       return c.html(
-        shellFull(siteName, headPayload.markup as string, bodyHtml, nav, siteLogo),
+        shellFull(
+          siteName,
+          headPayload.markup as string,
+          bodyHtml,
+          nav,
+          siteLogo,
+        ),
       );
     }
 
@@ -563,7 +597,12 @@ export function registerPublicRoutes(app: App): void {
       markup: rssLink,
       meta,
     });
-    let bodyHtml = renderHomepage(siteName, seoDescription, totalPosts, settings.hero_kicker ?? "");
+    let bodyHtml = renderHomepage(
+      siteName,
+      seoDescription,
+      totalPosts,
+      settings.hero_kicker ?? "",
+    );
     if (rows.results.length) {
       bodyHtml += renderPostList(rows.results, siteName);
     } else {
@@ -577,7 +616,13 @@ export function registerPublicRoutes(app: App): void {
     });
     bodyHtml = (bodyPayload.bodyHtml as string) ?? bodyHtml;
     return c.html(
-      shellFull(siteName, headPayload.markup as string, bodyHtml, nav, siteLogo),
+      shellFull(
+        siteName,
+        headPayload.markup as string,
+        bodyHtml,
+        nav,
+        siteLogo,
+      ),
     );
   });
 }

@@ -269,7 +269,7 @@ ${mode === "edit" ? '<div class="dim" style="font-size:0.75rem;margin-top:0.75re
 </div>
 <div class="aside-card">
 <h3>SEO</h3>
-<div class="form-group" style="margin-bottom:0.6rem"><label for="metaTitle">Meta title</label><input type="text" id="metaTitle" maxlength="70" value="${esc(p.meta_title ?? "")}" placeholder="${esc(p.title.slice(0, 50))}" /><div class="seo-counter" id="sCounter"></div></div>
+<div class="form-group" style="margin-bottom:0.6rem"><label for="metaTitle">Meta title <span class="hint">(leave empty to use the post title)</span></label><input type="text" id="metaTitle" maxlength="70" value="${esc(p.meta_title ?? "")}" placeholder="Defaults to post title" /><div class="seo-counter" id="sCounter"></div></div>
 <div class="form-group" style="margin-bottom:0.75rem"><label for="metaDesc">Meta description</label><textarea id="metaDesc" rows="3" maxlength="200" style="min-height:0;resize:none">${esc(p.meta_description ?? "")}</textarea><div class="seo-counter" id="dCounter"></div></div>
 <div id="snippetBox" class="snippet-empty"></div>
 </div>
