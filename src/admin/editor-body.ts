@@ -224,7 +224,7 @@ function editorPage(
 <form id="form" autocomplete="off">
 <div class="editor-grid">
 <div class="editor-main">
-<input type="text" id="title" class="title-input" placeholder="Post title" aria-label="Post title" value="${esc(p.title)}" required />
+<input type="text" id="title" name="title" class="title-input" placeholder="Post title" aria-label="Post title" value="${esc(p.title)}" required />
 <div class="slug-row"><span aria-hidden="true">/</span><input type="text" id="slug" name="slug" placeholder="my-slug" aria-label="Slug" value="${esc(p.slug)}" style="flex:1" required /></div>
 <div class="form-group"><label for="excerpt">Excerpt <span class="hint">(optional, max 255 chars — shows in post lists)</span></label><textarea id="excerpt" name="excerpt" rows="3" maxlength="255" style="min-height:0;resize:none">${esc(p.excerpt ?? "")}</textarea></div>
 <div class="form-group" style="margin-bottom:0">
