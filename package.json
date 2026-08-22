@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "build": "tsc --noEmit && node scripts/check-inline-js.mjs",
+    "build": "tsc --noEmit && node scripts/check-inline-js.mjs && npm run test:sanitize",
+    "test": "npm run test:sanitize",
+    "test:sanitize": "node --experimental-strip-types --no-warnings --test tests/sanitize.test.mjs",
     "lint": "prettier --check src/",
     "lint:fix": "prettier --write src/"
   },

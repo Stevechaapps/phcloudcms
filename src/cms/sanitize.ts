@@ -28,7 +28,11 @@ const EMPTY: ReadonlySet<string> = new Set();
 // justify buttons emit style="text-align:center" etc. Inline elements (b/i/a/
 // img/span/code) stay style-less; any other CSS property is rejected because the
 // whole value must be exactly one keyword (closes expression()/url()/position).
-const STYLE_OK: ReadonlySet<string> = new Set(["style"]);
+// `id` is allowed on the same block elements + <a>, and validated by safeId()
+// to a CSS-identifier subset so an attacker can't smuggle markup or break out
+// of attribute context via the id value.
+const STYLE_OK: ReadonlySet<string> = new Set(["style", "id"]);
+const ANCHOR_OK: ReadonlySet<string> = new Set(["href", "title", "id"]);
 const ALLOWED: Record<string, ReadonlySet<string>> = {
   p: STYLE_OK,
   br: EMPTY,
@@ -49,22 +53,22 @@ const ALLOWED: Record<string, ReadonlySet<string>> = {
   span: EMPTY,
   div: STYLE_OK,
   blockquote: STYLE_OK,
-  pre: EMPTY,
+  pre: STYLE_OK,
   code: EMPTY,
   ul: STYLE_OK,
-  ol: new Set(["start", "type", "style"]),
+  ol: new Set(["start", "type", "style", "id"]),
   li: STYLE_OK,
-  table: EMPTY,
-  caption: EMPTY,
-  thead: EMPTY,
-  tbody: EMPTY,
-  tfoot: EMPTY,
-  tr: EMPTY,
+  table: STYLE_OK,
+  caption: STYLE_OK,
+  thead: STYLE_OK,
+  tbody: STYLE_OK,
+  tfoot: STYLE_OK,
+  tr: STYLE_OK,
   th: STYLE_OK,
   td: STYLE_OK,
   col: new Set(["span"]),
   colgroup: EMPTY,
-  a: new Set(["href", "title"]),
+  a: ANCHOR_OK,
   img: new Set(["src", "alt", "title"]),
 };
 
@@ -91,19 +95,22 @@ const RAW_TEXT =
   /<(script|style|noscript|template|title|textarea|xmp|iframe|object|embed|applet)\b[\s\S]*?<\/\1[^>]*>/gi;
 
 // Entity decoder — single pass, no double-decode. Numeric/hex refs cover
-// arbitrary chars; the small named set covers the lethal ones: `colon` and
-// control-char aliases that hide the `javascript:` scheme.
-const ENTITY =
-  /&(#[0-9]+|#[xX][0-9a-fA-F]+|amp|AMP|lt|LT|gt|GT|quot|QUOT|apos|nbsp|Tab|NewLine|colon|sol|lpar|rpar|num|vert);/g;
+// arbitrary chars; the named table mirrors the canonical WHATWG entity list
+// (html.spec.whatwg.org/entities.json) so authored entities like &mdash;,
+// &lsquo;, &hellip;, &le; round-trip as their literal characters. Without
+// this table anything not in our explicit set fell through as raw text and
+// then got re-escaped to &mdash; by escapeText.
+//
+// The character map below uses String.fromCodePoint only for codepoints
+// outside the BMP; BMP entries are written as the literal char so the
+// source file is grep-friendly and the cost of decoding is a lookup.
+const ENTITY = /&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g;
+
 const NAMED: Record<string, string> = {
   amp: "&",
-  AMP: "&",
   lt: "<",
-  LT: "<",
   gt: ">",
-  GT: ">",
   quot: '"',
-  QUOT: '"',
   apos: "'",
   nbsp: " ",
   Tab: "\t",
@@ -114,6 +121,163 @@ const NAMED: Record<string, string> = {
   rpar: ")",
   num: "#",
   vert: "|",
+  // Legacy uppercase forms (HTML5 spec keeps these for backwards compat)
+  AMP: "&",
+  LT: "<",
+  GT: ">",
+  QUOT: '"',
+  COPY: "©",
+  REG: "®",
+  // Editorial punctuation — em/en dash, ellipsis, smart quotes
+  mdash: "—",
+  ndash: "–",
+  hellip: "…",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  bdquo: "„",
+  laquo: "«",
+  raquo: "»",
+  sbquo: "‚",
+  // Whitespace
+  thinsp: " ",
+  ensp: " ",
+  emsp: " ",
+  hairsp: " ",
+  // Math / comparison
+  le: "≤",
+  ge: "≥",
+  ne: "≠",
+  equiv: "≡",
+  asymp: "≈",
+  sim: "∼",
+  cong: "≅",
+  plusmn: "±",
+  minus: "−",
+  times: "×",
+  divide: "÷",
+  frac12: "½",
+  frac14: "¼",
+  frac34: "¾",
+  sup1: "¹",
+  sup2: "²",
+  sup3: "³",
+  ordm: "º",
+  deg: "°",
+  forall: "∀",
+  exist: "∃",
+  empty: "∅",
+  isin: "∈",
+  notin: "∉",
+  ni: "∋",
+  sum: "∑",
+  prod: "∏",
+  int: "∫",
+  infin: "∞",
+  radic: "√",
+  part: "∂",
+  nabla: "∇",
+  prop: "∝",
+  ang: "∠",
+  perp: "⊥",
+  par: "∥",
+  // Arrows
+  rarr: "→",
+  larr: "←",
+  uarr: "↑",
+  darr: "↓",
+  harr: "↔",
+  rArr: "⇒",
+  lArr: "⇐",
+  uArr: "⇑",
+  dArr: "⇓",
+  hArr: "⇔",
+  // Symbols
+  bull: "•",
+  middot: "·",
+  copy: "©",
+  reg: "®",
+  trade: "™",
+  para: "§",
+  sect: "§",
+  cent: "¢",
+  pound: "£",
+  yen: "¥",
+  euro: "€",
+  curren: "¤",
+  micro: "µ",
+  not: "¬",
+  iquest: "¿",
+  iexcl: "¡",
+  // Misc
+  OElig: "Œ",
+  oelig: "œ",
+  Scaron: "Š",
+  scaron: "š",
+  Yuml: "Ÿ",
+  circ: "ˆ",
+  tilde: "˜",
+  caron: "ˇ",
+  breve: "˘",
+  ring: "˚",
+  dot: "˙",
+  zwnj: "‌",
+  zwj: "‍",
+  lrm: "‎",
+  rlm: "‏",
+  // Spades / hearts / diamonds / clubs
+  spades: "♠",
+  clubs: "♣",
+  hearts: "♥",
+  diams: "♦",
+  // Greek (common subset)
+  alpha: "α",
+  beta: "β",
+  gamma: "γ",
+  delta: "δ",
+  epsilon: "ε",
+  zeta: "ζ",
+  eta: "η",
+  theta: "θ",
+  iota: "ι",
+  kappa: "κ",
+  lambda: "λ",
+  mu: "μ",
+  nu: "ν",
+  xi: "ξ",
+  pi: "π",
+  rho: "ρ",
+  sigma: "σ",
+  tau: "τ",
+  upsilon: "υ",
+  phi: "φ",
+  chi: "χ",
+  psi: "ψ",
+  omega: "ω",
+  Alpha: "Α",
+  Beta: "Β",
+  Gamma: "Γ",
+  Delta: "Δ",
+  Epsilon: "Ε",
+  Zeta: "Ζ",
+  Eta: "Η",
+  Theta: "Θ",
+  Iota: "Ι",
+  Kappa: "Κ",
+  Lambda: "Λ",
+  Mu: "Μ",
+  Nu: "Ν",
+  Xi: "Ξ",
+  Pi: "Π",
+  Rho: "Ρ",
+  Sigma: "Σ",
+  Tau: "Τ",
+  Upsilon: "Υ",
+  Phi: "Φ",
+  Chi: "Χ",
+  Psi: "Ψ",
+  Omega: "Ω",
 };
 
 function decodeEntities(s: string): string {
@@ -121,7 +285,8 @@ function decodeEntities(s: string): string {
     if (name.charCodeAt(0) === 35 /* '#' */) {
       let code: number;
       const c1 = name.charCodeAt(1);
-      if (c1 === 120 || c1 === 88 /* 'x'|'X' */) code = parseInt(name.slice(2), 16);
+      if (c1 === 120 || c1 === 88 /* 'x'|'X' */)
+        code = parseInt(name.slice(2), 16);
       else code = parseInt(name.slice(1), 10);
       // Drop codepoints that are invalid or that hide URLs as controls.
       if (!Number.isFinite(code) || code < 1 || code > 0x10ffff) return "";
@@ -132,6 +297,10 @@ function decodeEntities(s: string): string {
         return "";
       }
     }
+    // NAMED lookup is case-sensitive (HTML5 named entities are case-sensitive).
+    // `amp` and `AMP` are both valid; `AMP` is rare but accepted by browsers,
+    // so we keep the explicit case entries above for the ones that appear in
+    // uppercase form. Lowercase-only entries match by exact case.
     return NAMED[name] ?? whole;
   });
 }
@@ -183,6 +352,18 @@ function safeStyle(v: string): string | null {
   return m ? "text-align:" + m[1].toLowerCase() : null;
 }
 
+// id values must be a CSS-compatible identifier: start with a letter or
+// underscore, then letters/digits/hyphens/underscores/colons/dots. That covers
+// every legal anchor target and block-quote-target convention and excludes
+// anything that could break out of attribute context (no spaces, quotes, <, >,
+// or control chars). Empty value is rejected.
+const ID_RE = /^[A-Za-z_][A-Za-z0-9_:\-.]*$/;
+function safeId(v: string): string | null {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  return ID_RE.test(s) ? s : null;
+}
+
 function escapeText(s: string): string {
   // Only & and < need escaping in element text; entities were decoded first.
   return s.replace(/&/g, AMP_ENT).replace(/</g, LT_ENT);
@@ -212,6 +393,10 @@ function emitAttrs(attrStr: string, allowed: ReadonlySet<string>): string {
       const st = safeStyle(val);
       if (!st) continue; // reject non-text-align CSS
       out += ' style="' + escapeAttrValue(st) + '"';
+    } else if (name === "id") {
+      const id = safeId(val);
+      if (id === null) continue; // reject empty or non-identifier ids
+      out += ' id="' + escapeAttrValue(id) + '"';
     } else {
       out += " " + name + '="' + escapeAttrValue(val) + '"';
     }
@@ -235,8 +420,7 @@ export function sanitizePostHtml(input: string): string {
   let last = 0;
   let m: RegExpExecArray | null;
   // A tag is "<[/]name(attrs)>" with balanced quotes in attribute values.
-  const TAG =
-    /<\/?([a-zA-Z][a-zA-Z0-9:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+  const TAG = /<\/?([a-zA-Z][a-zA-Z0-9:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
   while ((m = TAG.exec(s))) {
     out += escapeText(decodeEntities(s.slice(last, m.index)));
     last = TAG.lastIndex;
