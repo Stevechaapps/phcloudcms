@@ -250,6 +250,12 @@ Admin has a wipe endpoint (Settings → Reset). To fully decommission: delete th
 
 ---
 
+## For coding agents
+
+If you're an AI coding agent working on this codebase, read [`AGENTS.md`](./AGENTS.md) first. It encodes the build commands, the sanitizer contract (every post/page goes through it — it's the XSS boundary), the MCP tool surface, and the security boundaries. Reading it before editing prevents the agent-equivalent of a regression.
+
+---
+
 <div align="center">
 
 **Built for the edge. Free forever on the Cloudflare free tier.**
